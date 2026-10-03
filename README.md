@@ -8,10 +8,10 @@ for pi + agy, skills), and runs the per-repo inits.
 
 ```bash
 cd your-project/
-curl -fsSL https://raw.githubusercontent.com/<you>/<repo>/main/init-project.ts | bun
+curl -fsSL https://raw.githubusercontent.com/meyverick/agent-bootstrap/main/install.ts | bun
 ```
 
-Or from a local checkout (repo root): `bun init-project.ts`.
+Or from a local checkout (repo root): `bun install.ts`.
 
 Re-running is always safe: every layer is idempotent (unchanged/skipped on success, exit 0).
 
@@ -19,11 +19,11 @@ Re-running is always safe: every layer is idempotent (unchanged/skipped on succe
 
 ```
 agent-bootstrap/            <- this repo (submodule of the private orchestrator)
-├── init-project.ts          <- THE bootstrap (self-contained: all payloads embedded)
+├── install.ts               <- THE bootstrap (self-contained: all payloads embedded)
 ├── install-lsp/lsp.json     <- editable source of truth for the embedded 17-server
 │                               LSP config (the script never reads it at runtime;
 │                               to change it: edit this file, then re-embed into
-│                               the LSP_CONFIG const in init-project.ts)
+│                               the LSP_CONFIG const in install.ts)
 ├── install-<app>/           <- per-app reference installers + templates + skills
 └── README.md
 ```
@@ -104,19 +104,18 @@ The one-liner executes a remote script. Use HTTPS and, for reproducibility,
 pin a tag instead of `main`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<you>/<repo>/v1.0.0/init-project.ts | bun
+curl -fsSL https://raw.githubusercontent.com/meyverick/agent-bootstrap/v1.0.0/install.ts | bun
 ```
 
 The script only spawns package managers/CLIs and reads/writes inside the
 current project tree.
 
-## Verify later (agy)
+## Verify-later status (agy)
 
-Two assumptions to confirm on a real agy session:
+**Confirmed (2026-10-03):** agy reads `./.agents/mcp_config.json` as project MCP
+config **and** expands `${VAR}` in `env`/`headers` like pi does — verified on a
+real agy session.
 
-1. agy reads `./.agents/mcp_config.json` as project MCP config **and** expands
-   `${VAR}` in `env`/`headers` like pi does
-2. agy reads `./.antigravity/lsp.json` for LSP servers
-
-Until verified: pi paths are proven; the agy paths are written anyway (best-effort,
-harmless if ignored).
+**Still to verify:** agy reads `./.antigravity/lsp.json` for LSP servers.
+Until verified: pi paths are proven; the agy LSP path is written anyway
+(best-effort, harmless if ignored).
