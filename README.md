@@ -13,6 +13,13 @@ curl -fsSL https://raw.githubusercontent.com/meyverick/agent-bootstrap/main/inst
 
 Or from a local checkout (repo root): `bun install.ts`.
 
+Prerequisites: **Bun, curl, git** — everything else is provisioned by the
+bootstrap itself, user-scope, on first run: uv, Node 22 LTS (→ npm/npx),
+rustup (→ cargo/rust-analyzer), .NET SDK (→ dotnet tools). Installs land in
+`~/.local`, `~/.cargo`, `~/.dotnet`; their own installers hook your shell
+profiles — restart the terminal afterwards so *future* shells see them
+(this run already works via in-process PATH).
+
 Re-running is always safe: every layer is idempotent (unchanged/skipped on success, exit 0).
 
 ## Repository layout
@@ -25,6 +32,18 @@ agent-bootstrap/            <- this repo (submodule of the private orchestrator)
 │                               to change it: edit this file, then re-embed into
 │                               the LSP_CONFIG const in install.ts)
 ├── install-<app>/           <- per-app reference installers + templates + skills
+├── install-agents/          <- base source (foundation, deployed by install.ts):
+│   ├── AGENTS.md            <- the universal rule book, currently INERT —
+│   │                            install.ts never reads it; balise region owned
+│   │                            by the upsert, not this file
+│   ├── skill-check/         <- always-shipped skill (direct refs in AGENTS.md)
+│   ├── skill-guardrails/    <- always-shipped skill (direct refs in AGENTS.md)
+│   └── scripts/
+│       └── check-deps.ts    <- dev utility: dependency freshness report
+│                                (bun scripts/check-deps.ts [dir] [--json]) —
+│                                deployed to the consumer's ./scripts/ by the
+│                                foundation layer; never referenced by
+│                                AGENTS.md (developer tool, not an agent rule)
 └── README.md
 ```
 
@@ -36,16 +55,51 @@ here).
 
 | Layer | Writes | When |
 |-------|--------|------|
-| 1. Machine | tool CLIs only (npm/uv global packages) — **never** `~/` dotfiles; plus LSP bins: 11 npm-able auto-installed, 6 toolchain-gated reported | every run (update checks are read-only, offline-tolerant) |
-| 2. Project MCP + LSP | `.pi/mcp.json` + `.agents/mcp_config.json` (8 servers, **env-ref credentials**) AND `.pi/lsp.json` + `.antigravity/lsp.json` (full 17-server LSP config) | first run + converges |
-| 3. Project rules | `AGENTS.md` — 8 balise activation blocks (re-run replaces only our blocks) | first run + converges |
-| 4. Project skills | `.agents/skills/<app>/` (35 files across 8 apps) | first run + converges |
-| 5. Repo inits | `graft build`, `qmd init .`, `codegraph init` | only when `graft/` / `.qmd` / `.codegraph` is absent |
+| 0. Foundation | embedded rule-book base → `./AGENTS.md` (byte-compare restore) + upgrade cleanup (stale manifest, dropped skills) + `./scripts/check-deps.ts` + `openspec/reports/` | FIRST — before every other step, every run; **zero agentic/bunx** |
+| 1. Machine | **self-provisions prerequisites** (uv · Node 22 LTS · rustup · .NET SDK — user-scope, in-process PATH) then tool CLIs (npm/uv global packages) — **never** `~/` dotfile configs; LSP bins: **17/17 auto** (13 npm + 4 toolchain channels) | every run (update checks are read-only, offline-tolerant) |
+| 1b. openspec profile | `~/.config/openspec/config.json` — canonical 3 keys merged, everything else preserved, **zero secrets** | every run + converges |
+| 2. Project MCP + LSP | `.pi/mcp.json` + `.agents/mcp_config.json` (9 servers, **env-ref credentials** where applicable — `benzi` carries none: auth lives in its own `~/.benzi/config.json`) AND `.pi/lsp.json` + `.antigravity/lsp.json` (full 17-server LSP config) | first run + converges |
+| 3. Project rules | `AGENTS.md` — foundation base + our 9 balise activation blocks appended on top (base = `install-agents/AGENTS.md`, restored by `writeBase()` each run; balise region re-appended after — byte-stable) | every run (both layers rewrite, content converges) |
+| 4. Project skills | `.agents/skills/` — 23 deployed skills (9 tool + 14 ours: kit 5, openspec-extra 6, extra-skills 3; 110 files, no evals/transcripts) = 23 disjoint dirs | every run + converges |
+| 5. Repo inits | `graft build`, `qmd init .`, `codegraph init` — marker-gated; **`openspec init --tools agents --force` — EVERY run (no marker, user's canonical command)** | gated ones only when `graft/` / `.qmd` / `.codegraph` is absent; openspec always |
 
-Machine layer covers: `qmd` · `sem` · `graft` · `codegraph` (npm, per-app update
-semantics) · `headroom` (uv) · `jcodemunch` (uvx gate) · `context7` + `jev`
+Machine layer covers: `qmd` · `sem` · `graft` · `codegraph` · `openspec` (npm, per-app update
+semantics) · `headroom` · `benzi` (uv, PyPI compare + `uv tool upgrade`; the installer never
+spawns `benzi-mcp`/`benzi-login`/`benzi-headless`) · `jcodemunch` (uvx gate) · `context7` + `jev`
 (node/npx gates). Destructive/config-writing subcommands are structurally
-unreachable (spawn allowlists).
+unreachable (spawn allowlists) — including openspec's interactive
+`update` upgrade offer, which is never spawned.
+
+`benzi` auth is a one-time **user** action: run `benzi-login` (interactive email
+code → `~/.benzi/config.json`, BYOK model keys) before MCP use. The installer
+never spawns it and never writes credentials into the project.
+
+## AGENTS.md ownership
+
+- **Base** = `install-agents/AGENTS.md` (this repo's rule book): the foundation layer
+  byte-compare-restores it every run (drift outside balises is restored away).
+- **Balise region** = ours: the 9 `<!-- <app>:start -->…<!-- <app>:end -->`
+  blocks are re-appended after the base each run — byte-stable convergence.
+- **Human edits** belong inside a balise block, or upstream to
+  this repository's `install-agents/AGENTS.md` (the base's source of truth) — never outside the balises.
+
+## Global openspec profile
+
+The bootstrap ensures openspec's canonical profile in the file reported by
+`openspec config path` (the **one deliberate `~/.config` exception** — openspec's
+config scope is global-only; same class as npm globals, zero secrets):
+
+| Key | Value |
+|-----|-------|
+| `profile` | `custom` |
+| `delivery` | `skills` |
+| `workflows` | `propose, explore, new, continue, apply, update, ff, sync, archive, bulk-archive, verify, onboard` (12) |
+
+This is the non-interactive equivalent of running `openspec config profile` to
+enable the expanded ("extra") skill set on a fresh machine; `init` then
+materializes the skill files per this config. **No skill, no AGENTS.md block, and
+no MCP config are authored for openspec** — upstream's `delivery: skills` owns
+the skill layer, and openspec has no server. The eight balise blocks stay eight.
 
 ## Required environment variables
 
@@ -63,14 +117,14 @@ other six servers are unaffected.
 
 ## LSP: 17 language servers
 
-Layer 1 ensures the server binaries from the embedded config. npm-able set
-(auto-install when the bin is missing — bin ← package, 10 packages):
+Layer 1 ensures the server binaries from the embedded config — target **17/17, zero manual steps**. npm-able set
+(auto-install when the bin is missing — bin ← package, 12 packages):
 
 | Bin | npm package |
 |-----|-------------|
 | `typescript-language-server` | `typescript-language-server` |
 | `svelteserver` | `svelte-language-server` |
-| `vscode-json-languageserver` | `vscode-langservers-extracted` |
+| `vscode-json-language-server` | `vscode-langservers-extracted` |
 | `vscode-html-language-server` | `vscode-langservers-extracted` |
 | `yaml-language-server` | `yaml-language-server` |
 | `gh-actions-language-server` | `gh-actions-language-server` |
@@ -79,14 +133,21 @@ Layer 1 ensures the server binaries from the embedded config. npm-able set
 | `biome` | `@biomejs/biome` |
 | `docker-langserver` | `dockerfile-language-server-nodejs` |
 | `bash-language-server` | `bash-language-server` |
+| `taplo` | `@taplo/cli` |
+| `buf` | `@bufbuild/buf` |
 
-Toolchain-gated set (reported with the exact command, never auto-run):
+Toolchain-channel set (owning toolchain provisioned user-scope first, only if absent —
+brew is never spawned):
 
-| Bin | Install with |
-|-----|--------------|
-| `rust-analyzer`, `marksman`, `taplo`, `buf` | `brew install rust-analyzer marksman taplo buf` |
-| `protols` | `cargo install protols` |
-| `csharp-ls` | `dotnet tool install --global csharp-ls` |
+| Bin | Channel |
+|-----|---------|
+| `rust-analyzer` | `rustup component add` (rustup provisioned if missing) |
+| `protols` | `cargo install` (via the rustup toolchain) |
+| `marksman` | official GitHub release binary → `~/.local/bin` |
+| `csharp-ls` | `dotnet tool install -g` (.NET SDK provisioned if missing) |
+
+A channel failure warns with verbatim output, the run continues, and the
+config is still written.
 
 Layer 2 writes the full 17-server config to BOTH:
 

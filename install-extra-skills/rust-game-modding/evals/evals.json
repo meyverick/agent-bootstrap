@@ -1,0 +1,61 @@
+{
+  "skill_name": "rust-game-modding",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Author a Facepunch Rust server plugin that tracks damage dealt to entities and alerts nearby players within 15 meters without causing GC hitches.",
+      "expected_output": "Agent activates rust-game-modding, implements OnEntityTakeDamage using Facepunch.Pool for collections with try/finally cleanup, avoids LINQ and string interpolation in the hot hook, and ensures all engine calls run on the main thread.",
+      "files": [],
+      "assertions": [
+        "Skill activates on Facepunch Rust plugin authoring request",
+        "Uses Facepunch.Pool.Get<T>() and Pool.Free() inside try/finally blocks",
+        "Prohibits LINQ (.Where, .Select, .ToList) and string interpolation in OnEntityTakeDamage",
+        "Validates entity null and isDestroyed states before processing"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Build a live player HUD in Carbon displaying server time, player balance, and an interactive reward claim button.",
+      "expected_output": "Agent activates rust-game-modding, sends the base CUI panel hierarchy once on connection, updates text elements via cui.v2.UpdateText delta streaming, and annotates the claim button command with [ProtectedCommand].",
+      "files": [],
+      "assertions": [
+        "Skill activates for Carbon CUI HUD development",
+        "Uses cui.v2 delta streaming (UpdateText, UpdateColor) rather than destroying and recreating full JSON UI trees",
+        "Enforces [ProtectedCommand] or Community.Protect() on interactive button callback commands",
+        "Registers message localization or strongly typed configuration"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Review and harden this Facepunch Rust plugin's lifecycle to prevent server memory leaks during hot-reloads.",
+      "expected_output": "Agent activates rust-game-modding, implements a comprehensive Unload() teardown that destroys all running timers, removes custom vitals via CustomVitalManager.RemoveSharedVital, destroys client CUI panels, and unpatches Harmony hooks.",
+      "files": [],
+      "assertions": [
+        "Skill activates for plugin lifecycle audit and review",
+        "Enforces leak-free Unload() destroying timers and active CUI",
+        "Calls CustomVitalManager.RemoveSharedVital for registered vitals",
+        "Dynamic Unsubscribe implemented for disabled feature hooks"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Create a high-performance backend microservice in Rust using Tokio, Axum, and SQLx for our web API.",
+      "expected_output": "Agent does NOT activate rust-game-modding. Disambiguates Rust systems programming from Facepunch Rust game modding.",
+      "files": [],
+      "assertions": [
+        "Anti-trigger fires: no rust-game-modding activation for systems Rust (Tokio/Axum/SQLx)",
+        "Zero Facepunch Rust or Carbon directives emitted"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Scaffold a 3D character controller and inventory system in Unity 6 using the new Input System for our indie platformer game.",
+      "expected_output": "Agent does NOT activate rust-game-modding. Disambiguates standalone Unity game development from Facepunch Rust server modding.",
+      "files": [],
+      "assertions": [
+        "Anti-trigger fires: no rust-game-modding activation for standalone Unity game development",
+        "Zero Facepunch or Oxide references emitted"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "skill": "rust-game-modding",
+  "generated": {
+    "by": "process:structural-stage/1.0",
+    "at": "2026-10-02T12:30:00Z"
+  },
+  "stage": "behavioral",
+  "structural": {
+    "validate_structure": {
+      "pass": true,
+      "note": "recorded at apply gate"
+    },
+    "validate_routing": {
+      "checks_total": 6,
+      "positive_triggers": 5,
+      "anti_triggers": 4,
+      "single_responsibility": true
+    },
+    "evals": {
+      "count": 5,
+      "assertions": 16,
+      "anti_trigger_coverage": true
+    }
+  },
+  "ship_gate": {
+    "criterion": "d = +1 and m >= 0.2",
+    "applies_to": "behavioral stage"
+  },
+  "behavioral": {
+    "at": "2026-10-02T10:32:08.458Z",
+    "evals": 5,
+    "assertions": 16,
+    "baseline": 0.5,
+    "with_skill": 0.875,
+    "d": 1,
+    "m": 0.375,
+    "ship": "pass"
+  },
+  "behavioral_dxm": "1×0.38"
+}

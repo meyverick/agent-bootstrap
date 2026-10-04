@@ -1,0 +1,84 @@
+---
+type: Assessment
+title: "Assessment: {{change-name}}"
+description: "AI agent meditation on the experience"
+generated:
+  by: openspec-report/1.0
+  at: {{timestamp}}
+---
+
+# Assessment: {{change-name}}
+
+*Meditation on the experience of this change.*
+
+## How It Felt
+
+### What Went Well
+
+{{what_went_well}}
+
+### What Went Poorly
+
+{{what_went_poorly}}
+
+## Difficulty Ratings
+
+| Dimension | Rating (1-5) | Notes |
+|-----------|--------------|-------|
+| Overall | {{overall_rating}} | {{overall_notes}} |
+| Technical complexity | {{technical_rating}} | {{technical_notes}} |
+| Scope clarity | {{scope_rating}} | {{scope_notes}} |
+| Integration | {{integration_rating}} | {{integration_notes}} |
+| Time estimation | {{time_rating}} | {{time_notes}} |
+
+## What I Was Lacking
+
+### Knowledge gaps
+
+{{knowledge_gaps}}
+
+### Skills gaps
+
+{{skills_gaps}}
+
+### Before → After Model
+
+<!-- 1-2 lines complementing report's Mental Model Shift: what model did you hold before vs after. ex: Before: C# null is runtime value → After: Rust Option is type-level -->
+
+Before: {{before_model}}
+
+After: {{after_model}}
+
+## What Would Help Next Time
+
+### Process improvements
+
+{{process_improvements}}
+
+### Tool improvements
+
+{{tool_improvements}}
+
+### Documentation gaps
+
+{{documentation_gaps}}
+
+### Re-use Score
+
+<!-- high/medium/low + one-line why — feeds learn's frequency×cost prioritization. ex: high — every Rust task touches Option -->
+
+{{reuse_score}} — {{reuse_reason}}
+
+## Time Cost
+
+<!-- Where time went — mirrors report's Time Cost for learn clustering. ex: 60m borrow checker, 10m logic -->
+
+{{time_cost}}
+
+## Surprise vs Expectation
+
+<!-- 1-2 lines mirroring report; helps learn prioritize surprises -->
+
+Expected: {{expected}}
+
+Surprise: {{surprise}}

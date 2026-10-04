@@ -125,7 +125,7 @@
         "tsconfig.json",
         ".git"
       ],
-      "bin": "vscode-json-languageserver",
+      "bin": "vscode-json-language-server",
       "args": [
         "--stdio"
       ],
