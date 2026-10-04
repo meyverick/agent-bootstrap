@@ -62,7 +62,7 @@ here).
 | 2b. Project Pi packages | `.pi/settings.json` — `packages[]` from `install-pi-extensions/extensions.json`, merged **workspace-only** (identity-union, no `pi` spawn, never `~/.pi`) + hint: grant project trust on the first pi session to load them | every run + converges |
 | 3. Project rules | `AGENTS.md` — foundation base + our 9 balise activation blocks appended on top (base = `install-agents/AGENTS.md`, restored by `writeBase()` each run; balise region re-appended after — byte-stable) | every run (both layers rewrite, content converges) |
 | 4. Project skills | `.agents/skills/` — 23 deployed skills (9 tool + 14 ours: kit 5, openspec-extra 6, extra-skills 3; 110 files, no evals/transcripts) = 23 disjoint dirs | every run + converges |
-| 5. Repo inits | `graft build`, `qmd init .`, `codegraph init` — marker-gated; **`openspec init --tools agents --force` — EVERY run (no marker, user's canonical command)** | gated ones only when `graft/` / `.qmd` / `.codegraph` is absent; openspec always |
+| 5. Repo inits | `graft build`, `qmd init .` + **qmd collections seeded** (6 from `default-db.json` — wikis/llms/openspec/references/directives/skills, skip-by-name) + `qmd update`, `codegraph init` — marker-gated; **`openspec init --tools agents --force` — EVERY run (no marker, user's canonical command)** | gated ones only when `graft/` / `.qmd` / `.codegraph` is absent; openspec always; **re-run `qmd update` after skill-changing runs to refresh the skills collection** |
 
 Machine layer covers: `qmd` · `sem` · `graft` · `codegraph` · `openspec` (npm, per-app update
 semantics) · `headroom` · `benzi` (uv, PyPI compare + `uv tool upgrade`; the installer never

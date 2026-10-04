@@ -1,0 +1,8 @@
+{
+    "wikis": "qmd collection add . --name wikis --mask \"**/wiki/*.{md,markdown,mdx,txt}\"",
+    "llms": "qmd collection add . --name llms --mask \"*llms*.{md,markdown,mdx,txt,json}\"",
+    "openspec": "qmd collection add openspec/ --name openspec --mask \"*.{md,markdown,mdx,txt}\"",
+    "references": "qmd collection add references/ --name references --mask \"*.{md,markdown,mdx,txt,yml,yaml}\"",
+    "directives": "qmd collection add . --name directives --mask \"AGENTS.md,CLAUDE.md,README.md,CHANGELOG.md,SECURITY.md,.cursorrules,.windsurfrules\"",
+    "skills": "qmd collection add .agents/skills/ --name skills --mask \"**/SKILL.md,**/references/*.md\""
+}

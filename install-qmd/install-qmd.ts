@@ -24,6 +24,10 @@ function fail(msg: string): never {
   process.exit(1);
 }
 
+function warn(msg: string): void {
+  console.warn(`[install-qmd] WARN: ${msg}`);
+}
+
 // Run a command; returns {code, stdout, stderr}. Never throws.
 function run(cmd: string, args: string[], cwd?: string) {
   const r = spawnSync(cmd, args, {
@@ -85,6 +89,47 @@ function initLocalIndex(): void {
   const r = run("qmd", ["init", "."]);
   if (r.code !== 0) fail(`qmd init . failed (exit ${r.code}):\n${r.stderr}`);
   log("initialized local .qmd index");
+}
+
+// ---- Step 2b: default knowledge collections (seed from default-db.json) ----
+function splitCommand(cmd: string): string[] {
+  return (cmd.match(/"[^"]*"|\S+/g) ?? []).map((t) => (t.startsWith('"') && t.endsWith('"') ? t.slice(1, -1) : t));
+}
+
+function seedCollections(): void {
+  let catalog: Record<string, string>;
+  try {
+    catalog = JSON.parse(readTemplate("default-db.json"));
+  } catch (e) {
+    fail(`default-db.json unparseable: ${e instanceof Error ? e.message : e}`);
+  }
+  const list = run("qmd", ["collection", "list"]);
+  const listed = list.code === 0 ? list.stdout : "";
+  let created = 0;
+  let skipped = 0;
+  for (const [name, cmd] of Object.entries(catalog)) {
+    // skip-by-name: user-edited collections are never re-added
+    if (new RegExp(`(^|\\s)${name}($|\\s)`).test(listed)) {
+      skipped++;
+      continue;
+    }
+    const argv = splitCommand(cmd);
+    // root path = token after `add` (relative to this project) — missing root → skip with log
+    const addIdx = argv.findIndex((a) => a === "add");
+    const rootPath = addIdx >= 0 ? argv[addIdx + 1] : undefined;
+    if (rootPath && !existsSync(join(process.cwd(), rootPath))) {
+      log(`qmd collection ${name}: skipped (root path missing: ${rootPath})`);
+      skipped++;
+      continue;
+    }
+    const r = run(argv[0], argv.slice(1));
+    if (r.code !== 0) warn(`qmd collection ${name} failed (exit ${r.code}): ${(r.stderr || r.stdout).trim()}`);
+    else created++;
+  }
+  log(`qmd collections: ${created} created, ${skipped} skipped (of ${Object.keys(catalog).length})`);
+  const up = run("qmd", ["update"]);
+  if (up.code !== 0) warn(`qmd update failed (exit ${up.code}): ${(up.stderr || up.stdout).trim()}`);
+  else log("qmd update: index refreshed");
 }
 
 // ---- Step 3: MCP merge -----------------------------------------------------
@@ -210,6 +255,7 @@ function deploySkill(): void {
 function main(): void {
   ensureCli();
   initLocalIndex();
+  seedCollections();
   mergeMcp();
   const block = upsertBlock(readTemplate("AGENTS.md"));
   upsertAgentsMd(block);

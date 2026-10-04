@@ -55,6 +55,9 @@ try {
   fail("embedded skill payload missing or corrupt — use the script as authored (re-fetch from source)");
 }
 
+// Embedded qmd default knowledge collections (seeded after qmd init).
+const DEFAULT_DB_PAYLOAD = "{\n    \"wikis\": \"qmd collection add . --name wikis --mask \\\"**/wiki/*.{md,markdown,mdx,txt}\\\"\",\n    \"llms\": \"qmd collection add . --name llms --mask \\\"*llms*.{md,markdown,mdx,txt,json}\\\"\",\n    \"openspec\": \"qmd collection add openspec/ --name openspec --mask \\\"*.{md,markdown,mdx,txt}\\\"\",\n    \"references\": \"qmd collection add references/ --name references --mask \\\"*.{md,markdown,mdx,txt,yml,yaml}\\\"\",\n    \"directives\": \"qmd collection add . --name directives --mask \\\"AGENTS.md,CLAUDE.md,README.md,CHANGELOG.md,SECURITY.md,.cursorrules,.windsurfrules\\\"\",\n    \"skills\": \"qmd collection add .agents/skills/ --name skills --mask \\\"**/SKILL.md,**/references/*.md\\\"\"\n}\n";
+
 // Embedded pi package manifest (workspace-only; merged into ./.pi/settings.json).
 const PI_PACKAGES_PAYLOAD = "{\n  \"packages\": [\n    \"npm:pi-lsp\",\n    \"npm:pi-ponytail\",\n    \"git:github.com/jonjonrankin/pi-caveman\",\n    \"npm:pi-memory\",\n    \"npm:pi-web-access\",\n    \"npm:pi-lens\",\n    \"npm:pi-jules\",\n    \"npm:pi-jev\"\n  ]\n}";
 
@@ -945,6 +948,41 @@ function ensureReportsDir(): void {
   }
 }
 
+// ---- qmd default knowledge collections (seed after init; skip-by-name) ----
+function splitQmdCommand(cmd: string): string[] {
+  return (cmd.match(/"[^"]*"|\S+/g) ?? []).map((t) => (t.startsWith('"') && t.endsWith('"') ? t.slice(1, -1) : t));
+}
+
+function seedQmdCollections(): void {
+  if (!existsSync(join(PROJECT_ROOT, ".qmd"))) return;
+  const catalog = JSON.parse(DEFAULT_DB_PAYLOAD) as Record<string, string>;
+  const list = run("qmd", ["collection", "list"]);
+  const listed = list.code === 0 ? list.stdout : "";
+  let created = 0;
+  let skipped = 0;
+  for (const [name, cmd] of Object.entries(catalog)) {
+    if (new RegExp(`(^|\\s)${name}($|\\s)`).test(listed)) {
+      skipped++;
+      continue;
+    }
+    const argv = splitQmdCommand(cmd);
+    const addIdx = argv.findIndex((a) => a === "add");
+    const rootPath = addIdx >= 0 ? argv[addIdx + 1] : undefined;
+    if (rootPath && !existsSync(join(PROJECT_ROOT, rootPath))) {
+      log(`qmd collection ${name}: skipped (root path missing: ${rootPath})`);
+      skipped++;
+      continue;
+    }
+    const r = run(argv[0], argv.slice(1));
+    if (r.code !== 0) warn(`qmd collection ${name} failed (exit ${r.code}): ${(r.stderr || r.stdout).trim()}`);
+    else created++;
+  }
+  log(`qmd collections: ${created} created, ${skipped} skipped (of ${Object.keys(catalog).length})`);
+  const up = run("qmd", ["update"]);
+  if (up.code !== 0) warn(`qmd update failed (exit ${up.code}): ${(up.stderr || up.stdout).trim()}`);
+  else log("qmd update: index refreshed");
+}
+
 // ============================================================ LAYER 5: repo inits
 function runInits(): void {
   const jobs: Array<{ marker: string; label: string; cmd: string; args: string[]; always?: boolean }> = [
@@ -997,6 +1035,7 @@ async function main(): Promise<void> {
   extractSkills();
   deployScript();
   runInits();
+  seedQmdCollections();
   ensureReportsDir();
   log("done — project initialized");
 }
