@@ -4,7 +4,7 @@ description: Fetch up-to-date, version-specific library documentation and code e
 license: MIT
 compatibility: Remote MCP server (resolve-library-id / query-docs) or Node >=18 with npx for the `npx ctx7@latest` CLI fallback.
 metadata:
-  source: https://github.com/upstash/context7 (skills: context7-mcp, context7-cli, find-docs)
+  source: "https://github.com/upstash/context7 (skills: context7-mcp, context7-cli, find-docs)"
 ---
 
 # context7 — Up-to-Date Library Documentation
