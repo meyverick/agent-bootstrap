@@ -2,7 +2,7 @@
   "packages": [
     "npm:pi-lsp",
     "npm:pi-ponytail",
-    "git:github.com/jonjonrankin/pi-caveman",
+    "npm:@caveman-ai/pi",
     "npm:pi-memory",
     "npm:pi-web-access",
     "npm:pi-lens",
