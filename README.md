@@ -22,6 +22,15 @@ profiles — restart the terminal afterwards so *future* shells see them
 
 Re-running is always safe: every layer is idempotent (unchanged/skipped on success, exit 0).
 
+### Flags
+
+| Flag | Effect |
+|---|---|
+| *(none)* | **Default**: our entries are updated, missing ones added, yours kept. Nothing is deleted except bootstrap-owned skill directories the kit no longer ships. |
+| `--prune` | **Full install of our surfaces**: `AGENTS.md` := rule book (prose outside our blocks is dropped), `servers` / `mcpServers` / `packages` := exactly ours (extra entries dropped, one log line each), every removed `AGENTS.md` line counted. Sibling keys outside those managed keys survive; skill convergence is identical in both modes. |
+
+Unknown flags are ignored — the script is also invoked by other tooling.
+
 ## Repository layout
 
 ```
@@ -55,13 +64,13 @@ here).
 
 | Layer | Writes | When |
 |-------|--------|------|
-| 0. Foundation | embedded rule-book base → `./AGENTS.md` (byte-compare restore) + upgrade cleanup (stale manifest, dropped skills) + `./scripts/check-deps.ts` + `openspec/reports/` | FIRST — before every other step, every run; **zero agentic/bunx** |
+| 0. Foundation | embedded rule-book base → `./AGENTS.md` (**written only when the file is absent, or on `--prune`**; otherwise the book region is preserved byte-for-byte) + upgrade cleanup (stale manifest, dropped skills) + `./scripts/check-deps.ts` + `openspec/reports/` | FIRST — before every other step, every run; **zero agentic/bunx** |
 | 1. Machine | **self-provisions prerequisites** (uv · Node 22 LTS · rustup · .NET SDK — user-scope, in-process PATH) then tool CLIs (npm/uv global packages) — **never** `~/` dotfile configs; LSP bins: **17/17 auto** (13 npm + 4 toolchain channels) | every run (update checks are read-only, offline-tolerant) |
 | 1b. openspec profile | `~/.config/openspec/config.json` — canonical 3 keys merged, everything else preserved, **zero secrets** | every run + converges |
 | 2. Project MCP + LSP | `.pi/mcp.json` + `.agents/mcp_config.json` (9 servers, **env-ref credentials** where applicable — `benzi` carries none: auth lives in its own `~/.benzi/config.json`) AND `.pi/lsp.json` + `.antigravity/lsp.json` (full 17-server LSP config) | first run + converges |
-| 2b. Project Pi packages | `.pi/settings.json` — `packages[]` from `install-pi-extensions/extensions.json`, merged **workspace-only** (identity-union, no `pi` spawn, never `~/.pi`) + hint: grant project trust on the first pi session to load them | every run + converges |
-| 3. Project rules | `AGENTS.md` — foundation base + our 9 balise activation blocks appended on top (base = `install-agents/AGENTS.md`, restored by `writeBase()` each run; balise region re-appended after — byte-stable) | every run (both layers rewrite, content converges) |
-| 4. Project skills | `.agents/skills/` — 23 deployed skills (9 tool + 14 ours: kit 5, openspec-extra 6, extra-skills 3; 110 files, no evals/transcripts) = 23 disjoint dirs | every run + converges |
+| 2b. Project Pi packages | `.pi/settings.json` — `packages[]` from `install-pi-extensions/extensions.json`, merged **workspace-only** (template-wins for declared packages so version bumps propagate; foreign packages + sibling keys kept; `--prune` resets `packages` to ours. No `pi` spawn, never `~/.pi`) + hint: grant project trust on the first pi session to load them | every run + converges |
+| 3. Project rules | `AGENTS.md` — foundation base + our 9 balise activation blocks appended on top (base = `install-agents/AGENTS.md`, created once then preserved; `--prune` reinstalls it; balise region re-appended after — byte-stable) | every run (blocks rewrite; base only on create / `--prune`) |
+| 4. Project skills | `.agents/skills/` — 23 deployed skills (9 tool + 14 ours: kit 5, openspec-extra 6, extra-skills 3; 133 files incl. 23 `.agent-bootstrap` ownership markers, no evals/transcripts) = 23 disjoint dirs. **Whole-tree convergence**: any drift (changed file, missing/extra file, missing marker) replaces the entire skill dir; a marker-bearing dir absent from the payload is deleted as stale; unmarked (foreign) dirs are never read or touched | every run + converges |
 | 5. Repo inits | `graft build`, `qmd init .` + **qmd collections seeded** (6 from `default-db.json` — wikis/llms/openspec/references/directives/skills, skip-by-name) + `qmd update`, `codegraph init` — marker-gated; **`openspec init --tools agents --force` — EVERY run (no marker, user's canonical command)** | gated ones only when `graft/` / `.qmd` / `.codegraph` is absent; openspec always; **re-run `qmd update` after skill-changing runs to refresh the skills collection** |
 
 Machine layer covers: `qmd` · `sem` · `graft` · `codegraph` · `openspec` (npm, per-app update
@@ -78,11 +87,14 @@ never spawns it and never writes credentials into the project.
 ## AGENTS.md ownership
 
 - **Base** = `install-agents/AGENTS.md` (this repo's rule book): the foundation layer
-  byte-compare-restores it every run (drift outside balises is restored away).
+  writes it when `AGENTS.md` is absent and reinstalls it on `--prune`. A default run
+  leaves the book region byte-for-byte alone.
 - **Balise region** = ours: the 9 `<!-- <app>:start -->…<!-- <app>:end -->`
   blocks are re-appended after the base each run — byte-stable convergence.
 - **Human edits** belong inside a balise block, or upstream to
-  this repository's `install-agents/AGENTS.md` (the base's source of truth) — never outside the balises.
+  this repository's `install-agents/AGENTS.md` (the base's source of truth). `--prune`
+  overwrites everything outside our blocks, so keep prose out of a project copy if you
+  run it.
 
 ## Global openspec profile
 
