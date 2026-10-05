@@ -66,10 +66,10 @@ This runs the full 6-slot pipeline, including cloning the committed tree into an
 A check-gated repository organizes gates in a 2-tier hierarchy:
 
 1. **Workspace Root (`./scripts/check.sh`)**:
-   - Checks workspace-wide invariants: submodule pointer freshness (`git submodule status`) and tracked credential leaks (`git ls-files`).
-   - Loops over all registered submodules and dispatches `./$path/scripts/check.sh $QUICK`.
-2. **Submodule / Subproject (`./<submodule>/scripts/check.sh`)**:
-   - Executes the module's native toolchain (Rust, Bun, Go, Python).
+   - Checks orchestrator invariants: submodule pointer freshness (`git submodule status`) and tracked credential leaks (`git ls-files`).
+   - Delegates to the single project's gate: `project/scripts/check.sh $QUICK`.
+2. **Project Submodule (`./project/scripts/check.sh`)**:
+   - Executes every component lane's native toolchain matrix (`web`, `api`, `db`).
    - Validates compile-time asset tracking and performs the clean-clone test.
 
 ## Diagnostic Matrix: The 7 Failure Classes

@@ -7,14 +7,14 @@ This reference document defines the standard 6-slot architecture for local pre-p
 ## 1. The Two-Tier Gate Model
 
 In monorepos and submodule workspaces, gates are divided into two complementary tiers:
-1. **The Orchestrator Gate (`./scripts/check.sh`)**: Enforces workspace-level invariants (pointer synchronization and credential leaks across the entire tree) and dispatches to each module's gate.
+1. **The Orchestrator Gate (`./scripts/check.sh`)**: Enforces orchestrator-level invariants (pointer synchronization and credential leaks across the tree) and delegates to the single project's gate.
 2. **The Submodule Gate (`./<module>/scripts/check.sh`)**: Enforces language-native compilation, linting, tests, asset tracking, and clean-clone hermeticity for that specific module.
 
 ---
 
 ## 2. Workspace Orchestrator Skeleton (`./scripts/check.sh`)
 
-The root gate coordinates all submodules and blocks credential leaks before any packet touches the network.
+The root gate coordinates the single `project/` submodule and blocks credential leaks before any packet touches the network.
 
 ```bash
 #!/usr/bin/env bash

@@ -5,14 +5,14 @@
 - Workers (stateless Rust/Axum+Rayon): disposable, horizontally scalable — register, pull via RPC/queue, report progress+results, heartbeat. Lost worker → re-queue or fail (at-least-once+idempotent).
 - Realtime progress/results → WebSocket/SSE; client polling anti-pattern.
 - Backpressure explicit: bounded concurrency, queue caps, rate limits — reject unbounded growth.
-- Defaults: PostgreSQL queue table (SQLx), WebSocket/SSE streaming, lightweight Rust workers — platform primitives over new brokers. Default for heavy/async/batch/rate-limited; trivial sync stays in request path (KISS/YAGNI).
+- Defaults: PostgreSQL (preferred) queue table (SQLx), WebSocket/SSE streaming, lightweight Rust workers — platform primitives over new brokers. Default for heavy/async/batch/rate-limited; trivial sync stays in request path (KISS/YAGNI).
 - Anti-patterns: stateful workers · multiple state owners · cron-as-scheduler · unbounded queues · blocking request path · peer-to-peer meshes.
 - Temporal isolation & deterministic state: domain state transitions MUST be pure functions over events (`delta: (State, Event) -> State`) with zero side effects; reading hardware clocks (`Instant::now()`, `clock_gettime`) inside transition logic is forbidden — logical timestamps are assigned at the ingress gateway boundary and passed in event payloads.
 - WebSocket/SSE: default real-time sync for live Svelte stores.
 
 ## 6a. Realtime & Event-Driven
 
-- Maintain strict event-driven push via PostgreSQL LISTEN/NOTIFY and Tokio broadcast channels; use WebSockets/SSE for frontend UI streaming and gRPC (tonic/Protobuf) for backend inter-module worker communication.
+- Maintain strict event-driven push via PostgreSQL-preferred LISTEN/NOTIFY and Tokio broadcast channels; use WebSockets/SSE for frontend UI streaming and gRPC (tonic/Protobuf) for backend inter-module worker communication.
 - Every control loop fires on the event (state change, inbound message, threshold crossed), not blind interval.
 - Defaults: `WebSocket`/`SSE` push for live state; background jobs use queue+worker (§6) with at-least-once idempotency+dedup keys; platform primitives over new brokers.
 - Polling = fallback only — upstream offers no webhook/SSE → coarsest interval tolerated, gated `single-flight+timeout+dedup` (batch/fan-out `N×` sequential RPCs).

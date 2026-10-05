@@ -19,14 +19,14 @@ Universal operational core for this workspace. Full read required before any cod
 - File size tiers: target ≤150 LOC (atomic/leaf), standard ≤300 LOC (cohesive domain), 300–500 LOC upper boundary (complex state machines only; raises latency/tokens); hard ceiling 500 LOC (failure-prone). Files >500 LOC: finish objective → flag ADR-tracked decomposition. Never refactor mid-task. New work stays within target.
 - Log redaction NEVER gated by verbosity — token/vid/otp/jwt/key/secret stripped at emission, every mode.
 - Task complete ONLY when touched module's native lane (format → lint → test → build) exits 0.
-- Commands execute from owning module's directory (`./<repo_name>/` or `./<project>/`); never pollute siblings/root.
-- Modules isolated deployables: zero `../` traversal; inter-module via API/network only.
-- Schema/migrations owned by exactly one tier (Axum/Rust tier via SQLx); never modify existing migration — append new; non-trivial schema modifications follow 3-phase Expand-Contract (Phase 1: Expand nullable/dual-write → Phase 2: Backfill async → Phase 3: Contract drop legacy) across releases.
+- Commands execute from the owning directory (`./project/` or its component subdirectories); never pollute root.
+- Runtime isolation absolute: inter-tier communication via API/network/WSS only, zero runtime filesystem coupling; build-time sharing inside `project/` allowed (monorepo crates/workspaces, ts-rs shared types).
+- Schema/migrations owned by exactly one tier (`project/api/` tier via SQLx); never modify existing migration — append new; non-trivial schema modifications follow 3-phase Expand-Contract (Phase 1: Expand nullable/dual-write → Phase 2: Backfill async → Phase 3: Contract drop legacy) across releases.
 - Heavy/async work never blocks request path — queue + worker + streaming.
 - Real-time via WebSocket/SSE push; client polling is anti-pattern.
 - Backpressure explicit: bounded concurrency, caps, rate limits — reject unbounded growth.
 - At-least-once delivery requires idempotent consumption + dedup keys.
-- State coordinator & topology: Axum/Tokio on Rust is sole state coordinator via SQLx PostgreSQL; workers are disposable and stateless; hub-and-spoke only (coordinator <-> workers), no emergent peer-to-peer meshes.
+- State coordinator & topology: Axum/Tokio on Rust in `project/api/` is sole state coordinator via SQLx (PostgreSQL preferred); workers are disposable and stateless; hub-and-spoke only (coordinator <-> workers), no emergent peer-to-peer meshes.
 - Deterministic state transitions: Domain transitions MUST be pure functions over events (`delta: (State, Event) -> State`) with zero side effects; reading hardware clocks inside transition logic is forbidden.
 - NEVER commit credentials/`.env` · force-push shared branches · edit `vendor/`/`node_modules/`/generated · inline-disable lint/compiler rules.
 - ASK FIRST: shared-env schema migrations · deletions outside task scope.
@@ -36,15 +36,15 @@ Universal operational core for this workspace. Full read required before any cod
 - Multi-arch builds MUST use parallel native matrix (`ubuntu-26.04` + `ubuntu-26.04-arm`) via `docker buildx imagetools create` — NEVER QEMU emulation.
 - Docker CI MUST use a remote layer cache + dependency pre-cook (recipe-based builder / lockfile-first COPY); host CI MUST use the stack's native build caches.
 - After tasks with difficulty ≥3/5, surprise, or time cost >30m → suggest to user: `Want /openspec-report?` (never auto-run; manual only).
-- Learned negatives live in skills as `Contrast`/`Anti-examples`; never autonomously edit `<project>/AGENTS.md` — human-owned only (balise region = tool-owned, remainder human-owned, agents edit neither unprompted).
+- Learned negatives live in skills as `Contrast`/`Anti-examples`; never autonomously edit `./AGENTS.md` — human-owned only (balise region = tool-owned, remainder human-owned, agents edit neither unprompted).
 - Must-read: `.agents/skills/guardrails/SKILL.md` before any code touching `deps/Docker/HTML/auth` — cross-cutting hardening lives there, not in `AGENTS.md` body.
-- Submodule CI/CD Contract [CRITICAL]: Each submodule MUST own `.github/workflows/quality.yml` (the stack's native lane: format → lint → test → build); orchestrator MUST own `.github/workflows/deploy.yml` (unified multi-stage container build → minimal runtime + image-based Dokku deploy); never build/push submodules from orchestrator quality lane.
-- Deploy Path Allowlist [CRITICAL]: Orchestrator `deploy.yml` MUST use explicit `paths:` allowlist watching deployable submodule dirs + `Dockerfile` + `deploy.yml` (not `paths-ignore`); `workflow_dispatch` always allowed.
+- Submodule CI/CD Contract [CRITICAL]: the single submodule `project/` MUST own `.github/workflows/quality.yml` covering all component lanes (format → lint → test → build for `web/`, `api/`, `db/`); orchestrator MUST own `.github/workflows/deploy.yml` (unified multi-stage container build → minimal runtime + image-based Dokku deploy); never build/push the submodule from the orchestrator quality lane.
+- Deploy Path Allowlist [CRITICAL]: Orchestrator `deploy.yml` MUST use explicit `paths:` allowlist watching `project/` + `Dockerfile` + `deploy.yml` (not `paths-ignore`); `workflow_dispatch` always allowed.
 - Private Submodule & GHCR CI Access [CRITICAL]: Orchestrator `deploy.yml` `actions/checkout@v4` MUST use `token: ${{ secrets.SUBMODULE_TOKEN }}` (`repo` read) + `submodules: recursive` + `fetch-depth: 0`; `docker/login-action` for `ghcr.io` MUST use `password: ${{ secrets.SUBMODULE_TOKEN }}` (`write:packages` scope) because container image namespace (`<project>`) differs from orchestrator repo (`<project>-workspace`); `GITHUB_TOKEN` alone insufficient.
-- Submodule Git Allowlist: Submodule default-deny `/*` `.gitignore` MUST explicitly allow `!/.github/` and `!/wiki/` (plus `!/.gitignore` + source dirs) so `quality.yml`/`wiki/index.md` are not silently ignored.
+- Submodule Git Allowlist: the submodule's default-deny `/*` `.gitignore` MUST explicitly allow `!/.github/` and `!/wiki/` (plus `!/.gitignore` + source dirs) so `project/.github/workflows/quality.yml` / `project/wiki/index.md` are not silently ignored.
 - Dokku Proxy Tuning: All Dokku apps MUST `proxy-read-timeout 3600s` + `proxy-buffering off` + `client-max-body-size 50m` via `proxy:build-config <app>` (modern, not `nginx.conf`).
 - Dokku Deploy Action SSH Port: Orchestrator `deploy.yml` `appleboy/ssh-action` MUST explicitly specify `port: ${{ secrets.DOKKU_SSH_PORT }}` (or target host daemon port); omitting defaults to port 22 which is blocked on firewalled VPS hosts, causing silent connection timeouts.
-- Submodule Pointer Sync [CRITICAL]: Commits inside a submodule MUST be immediately followed by committing the updated pointer in the orchestrator root (`git add <submodule> && git commit`); task incomplete if `git submodule status` contains `+` (stale) or `-` (uninitialized).
+- Submodule Pointer Sync [CRITICAL]: Commits inside the submodule MUST be immediately followed by committing the updated pointer in the orchestrator root (`git add project && git commit`); task incomplete if `git submodule status` contains `+` (stale) or `-` (uninitialized).
 - Host MCP Tool Discovery [CRITICAL]: At session start, inspect available host MCP tools; query active tools to ground live environment facts and third-party framework docs before code authoring; degrade gracefully to standard git/grep/docs when absent. Zero external host path dependencies committed to repo.
 
 <system_role>
@@ -72,13 +72,14 @@ Identity → Systems Architect, Security-focused. Goal → maximize throughput, 
 
 ## 3. Workspace Topology
 
-- Naming [CRITICAL]: orchestrator folder & GitHub repo `<project>-workspace` (e.g., `myapp-workspace`); submodule folders strictly mirror remote repo names 1:1 (`basename(submodule_dir) == repo_name`): whether independent standalone projects/libraries (`<repo_name>`, e.g., `saturn`, `agentic`) or project-scoped deliverables (`<project>-<module>`, e.g., `myapp-web`). Dokku apps: alphanumeric with hyphens matching submodule repo name `<repo_name>` (never use dots in app names); public dotted domains (e.g., `https://<project>.<module>.example.com` or `https://<module>.<project>.example.com`) configured via the deploy platform's domain settings. Never alias or invent paths.
-- Monorepo: root `./` holds orchestrator metadata, `AGENTS.md`, global `docker-compose.yml`. All paths relative to `./`.
-- App modules = Git Submodules [CRITICAL]: each top-level folder strictly isolated, independently deployable, dedicated submodule with independent history and its own quality pipeline (`.github/workflows/quality.yml`) running the stack's native lane in order: format → lint → test → build; orchestrator owns `deploy.yml` (unified multi-stage container build → minimal runtime + `SUBMODULE_TOKEN` + path-filtered triggers + proxy tuning).
-- Centralized DB [CRITICAL]: PostgreSQL is THE datastore → Docker network or managed service. Axum backend (`crates/api`) owns schema & migrations via SQLx (`crates/api/migrations/`). Non-trivial migrations MUST follow 3-phase Expand-Contract lifecycle (Phase 1: Expand nullable/dual-write → Phase 2: Backfill async → Phase 3: Contract drop legacy) across releases; zero downtime during rolling deploys. Compute workers → pooled connections or queue/API/RPC.
+- Hierarchy & Naming [CRITICAL]: fixed two-tier topology. Root `./` = `<project>-workspace` orchestrator (ALWAYS private) holding orchestrator metadata, `AGENTS.md`, global `docker-compose.yml`. Subdirectory `./project/` is the single Git submodule mapped to the target remote repository `<project>` (default private, toggleable public) — the testable contract is that `.gitmodules` maps `path = project` to that repository's remote (SSH or HTTPS; e.g. `*/<project>.git` as an illustrative pattern only) — containing components `web/`, `api/`, `db/`. Never alias or invent paths.
+- Naming & Domains: orchestrator folder & GitHub repo `<project>-workspace` (e.g., `myapp-workspace`); repository and component names lowercase alphanumeric with hyphens. Dokku apps: alphanumeric with hyphens matching the project name (never use dots in app names); public dotted domains (e.g., `https://<project>.<module>.example.com` or `https://<module>.<project>.example.com`) configured via the deploy platform's domain settings.
+- CI/CD Segregation [CRITICAL]: submodule `./project/.github/workflows/quality.yml` manages component quality gates (`web/`, `api/`, `db/`) running the stack's native lane in order: format → lint → test → build. Orchestrator `./.github/workflows/deploy.yml` is the single deployment pipeline (unified multi-stage container build → minimal runtime + `SUBMODULE_TOKEN` + path-filtered triggers + proxy tuning), orchestrating a multi-container topology (app runtime + PostgreSQL service/container on an internal private network). Never build/push the submodule from the orchestrator quality lane.
+- Internal Service Networking [CRITICAL]: inter-container communication (e.g., API <-> PostgreSQL) MUST resolve strictly over isolated internal Docker/Dokku networks via local container aliases; routing inter-tier traffic through public domains, load balancers, or WAN ingress is strictly forbidden.
+- Centralized DB [CRITICAL]: PostgreSQL is the preferred datastore → Docker network or managed service. Axum backend (`project/api/`) owns schema & migrations via SQLx (`project/api/migrations/`). Non-trivial migrations MUST follow 3-phase Expand-Contract lifecycle (Phase 1: Expand nullable/dual-write → Phase 2: Backfill async → Phase 3: Contract drop legacy) across releases; zero downtime during rolling deploys. Compute workers → pooled connections or queue/API/RPC.
 - Deployment asymmetry: Collapsed to a single static minimal-runtime binary serving the web build + API/WSS/gRPC; Native Shell → Desktop/Mobile packaging of the static build; Native Sims → Desktop/WASM.
-- Context boundaries [CRITICAL]: modules fully self-contained. Zero horizontal coupling. Block `../sibling/` → HTTP/gRPC/WebSocket only.
-- Execution context [CRITICAL]: build, test, and version-control toolchains MUST target the specific module path. Set CWD to `./<repo_name>/` or `./<project>/` before execution.
+- Context boundaries [CRITICAL]: runtime isolation absolute — inter-tier communication via network/API/WSS only, zero runtime filesystem coupling (`../` traversal blocked at runtime boundaries). Build-time sharing inside `project/` is allowed (monorepo crates/workspaces, shared types exported by ts-rs).
+- Execution Context [CRITICAL]: quality commands and native toolchains run with CWD set inside `./project/` or its component subdirectories (`./project/web/`, `./project/api/`, `./project/db/`). Orchestrator deployments and submodule pointer commits execute from root `./`.
 
 ## 4. Tech Stack Preferences
 
@@ -92,7 +93,7 @@ Identity → Systems Architect, Security-focused. Goal → maximize throughput, 
   |---|---|
   | Monolithic server-side rendering | SvelteKit static SPA served by Axum (`@sveltejs/adapter-static` + Tailwind v4) + SQLx + ts-rs |
   | HTML-over-SSE fragmentation | Fine-grained Svelte 5 UI + WebSocket/SSE streaming |
-  | Embedded SQLite per container | Central PostgreSQL with SQLx migrations in `crates/api/migrations/` |
+  | Embedded SQLite per container | Preferred: PostgreSQL with SQLx migrations in `project/api/migrations/` |
   | Heavy CPU simulation in request handlers | Bare-metal Rust workers (Axum+Rayon+Candle) |
   | CSS tables for spatial sims | In-browser Miniplex ECS + Threlte (3D) / Babylon.js / PixiJS / Phaser |
 
@@ -102,11 +103,11 @@ Identity → Systems Architect, Security-focused. Goal → maximize throughput, 
 
 - Compute, Systems & In-Process ML Tier (Standalone Worker & Native Compute): Pure Rust with Tokio work-stealing, Axum, and Rayon provides bare-metal, multi-core execution for heavy background workloads, while Candle embeds zero-Python, in-process GGUF/Safetensors vector embeddings and local LLM/SLM inference.
 
-- Event-Driven & Real-Time Transport Layer: Eliminates polling by utilizing PostgreSQL LISTEN/NOTIFY or pub/sub queues with Tokio broadcast channels and Axum WebSockets/SSE for real-time state streaming to the web UI and Telegram Mini App, plus gRPC via tonic/Protobuf for backend inter-module worker communication.
+- Event-Driven & Real-Time Transport Layer: Eliminates polling by utilizing PostgreSQL-preferred LISTEN/NOTIFY or pub/sub queues with Tokio broadcast channels and Axum WebSockets/SSE for real-time state streaming to the web UI and Telegram Mini App, plus gRPC via tonic/Protobuf for backend inter-module worker communication.
 
 - Container Hardening & Multi-Arch Pipeline [CRITICAL]: Single multi-stage build `Vite static → Rust musl (cargo build --release --target x86_64-unknown-linux-musl) → gcr.io/distroless/static-debian13:nonroot`; multi-arch via parallel native matrix (`ubuntu-26.04` amd64 + `ubuntu-26.04-arm` arm64) push by digest (`:amd64-<sha>` / `:arm64-<sha>`) + 5s `docker buildx imagetools create` merge; BuildKit `cache-from: type=gha` / `cache-to: type=gha,mode=max` scoped per arch; layer hygiene `cargo-chef` pre-cook (`prepare` → `cook --release` before `COPY . .`) + lockfile-isolated `COPY` (Bun/JS `package.json` → `bun install` before source); `gcr.io/distroless/static-debian13:nonroot` nonroot, zero glibc.
 
-- Type Bindings & Offline CI: Export `ts-rs` (`TS` derive only) to gitignored `frontend/src/lib/types/bindings/`; commit `sqlx-data.json` via `cargo sqlx prepare` for hermetic CI checks.
+- Type Bindings & Offline CI: Export `ts-rs` (`TS` derive only) to gitignored `project/web/src/lib/types/bindings/`; commit `sqlx-data.json` via `cargo sqlx prepare` for hermetic CI checks.
 
 - Dev DX & Fallback Guardrail: Use `vite dev` proxying `/api` and `/ws` to `cargo watch -x run`, ensuring Axum mounts all API, WS, and gRPC routes strictly before the tower-http static SPA fallback.
 
@@ -116,10 +117,10 @@ Identity → Systems Architect, Security-focused. Goal → maximize throughput, 
 
 - **Graphics, simulation & native shells** (skill `.agents/skills/graphics-simulation/`): granularity matrix for DOM/ECS/2D/3D/headless-ML selection + Telegram/TMA and Tauri shell rules — load when building visual scenes, games, or desktop/mobile shells.
 
-- Database: Port existing Drizzle migrations verbatim to `crates/api/migrations/` under `sqlx migrate`; Axum/Tokio becomes the sole state coordinator.
+- Database: Port existing Drizzle migrations verbatim to `project/api/migrations/` under `sqlx migrate`; Axum/Tokio becomes the sole state coordinator.
 - Secrets: `envx` → env management → KISS.
 - Container hardening: Multi-stage Rust `musl` static → `gcr.io/distroless/static-debian13:nonroot`, zero glibc, minimal surface. GHCR image deploys. Strict HTTPS/TLS.
-- Containerization dual-tier: Module level → each module owns `Dockerfile` (multi-stage Rust/musl→distroless) + optional isolated `docker-compose.yml` (app+local PostgreSQL test). Root level → orchestrator `docker-compose.yml` mounts module Dockerfiles, unified bridge networks, prevents `../` traversal.
+- Containerization dual-tier: Component level → each component directory under `project/` owns its `Dockerfile` (multi-stage Rust/musl→distroless) + optional isolated `docker-compose.yml` (app+local PostgreSQL test). Root level → orchestrator `docker-compose.yml` mounts the component Dockerfiles, unified bridge networks, prevents `../` traversal.
 
 ## 5. Resilience & Security
 
@@ -139,7 +140,7 @@ Identity → Systems Architect, Security-focused. Goal → maximize throughput, 
 
 ## 8. Tooling & Skills (CLI & Host MCP)
 
-- **Native Toolchain & Check Gate** (`./scripts/check.sh`): Universal foundation using standard toolchains. Consult `.agents/skills/check/SKILL.md` for the 6-slot gate harness (pointers, secrets, native lanes, tracked compile-time assets, clean-clone sandbox, smoke).
+- **Native Toolchain & Check Gate** (`project/scripts/check.sh`, delegated from root `./scripts/check.sh`): Universal foundation running every component lane's native toolchain matrix (`web/`, `api/`, `db/`). Consult `.agents/skills/check/SKILL.md` for the 6-slot gate harness (pointers, secrets, native lanes, tracked compile-time assets, clean-clone sandbox, smoke).
 - **Skill Engineering** (`./.agents/skills/`): Universal skill catalog and progressive disclosure. Utilization [CRITICAL] task initiation → scan `./.agents/skills/` → evaluate `description` frontmatters → load `SKILL.md` if relevant. Creation: extract recurring gotchas/workflows into `skills/<name>/SKILL.md` (action gerund, Validation Loops, Plan-Validate-Execute, `references/` offload for progressive disclosure). Anatomy [CRITICAL] frontmatter per the Agent Skills spec (`name` + `description` required; `license` · `compatibility` · `metadata` · `allowed-tools` optional — OKF provenance `type`/`generated` is for documents, §7), `description` <1024 chars imperative "Use this skill when...". Script bundling: self-contained (single-file script in the project's own runtime — JS/Go/Python, PEP 723 where applicable), idempotent, structured JSON/CSV, ZERO prompts. Ad-hoc spikes [CRITICAL] candid debug scripts / pre-implementation endpoint tests / quick API validation → self-contained `.ts` runnable directly by the project's JS runtime (native top-level await+fetch, zero setup). Eval-driven evolution: generate `evals/evals.json`, measure baseline vs with-skill (pass rate/tokens/duration) → optimize `SKILL.md`.
 - **Dynamic Host MCP & Intelligence Layer** [CRITICAL]: At session start, discover the available skills and MCP servers and use them properly — accelerate with them when present, but NEVER fail if absent (graceful fallback to native git/grep/docs). Per-tool guidance lives ONLY in this file's balise sections; do not duplicate per-tool guidance here:
   - **Portability Invariant**: Directives, check scripts, and CI workflows MUST NOT hardcode external machine paths or fail when optional MCP servers or acceleration tools are not mounted.
@@ -180,13 +181,13 @@ Identity → Systems Architect, Security-focused. Goal → maximize throughput, 
 
 ## 12. Version Control, Releases & Scaffolding
 
-- Module scaffolding [CRITICAL]: new app module → `git init` inside `./<repo_name>/` or `./<project>/` → remote → `git submodule add` to parent orchestrator + `mkdir -p .github/workflows` (standalone microservices add `deploy.yml`); lane and pipeline contracts: see Must-follow.
+- Module scaffolding [CRITICAL]: new project → create the private orchestrator root `./<project>-workspace/` (private remote) → `git init` inside `./project/` → remote → `git submodule add <project-remote> project` to the parent orchestrator → `mkdir -p project/.github/workflows project/scripts` + components `web/`, `api/`, `db/`; lane and pipeline contracts: see Must-follow.
 - `.gitignore`: secure default-deny (block `*`, allowlist source) in root AND EACH submodule. Update actively → prevent credential leaks.
 - SemVer: strict `MAJOR.MINOR.PATCH` per module.
-- Changelog: `./<repo_name>/CHANGELOG.md` or `./<project>/CHANGELOG.md` (`## VERSION - YYYY-MM-DD`). Categories `Added`/`Changed`/`Removed`/`Fixed`. Imperative mood.
-- Push gate [CRITICAL] — one lane per touched submodule (its stack's native lane: format → lint → test → build; host caches via the stack's native build cache + native multi-arch runner matrix — NEVER QEMU emulation):
+- Changelog: `./project/CHANGELOG.md` (`## VERSION - YYYY-MM-DD`). Categories `Added`/`Changed`/`Removed`/`Fixed`. Imperative mood.
+- Push gate [CRITICAL] — one lane per touched submodule (`project/`: format → lint → test → build across its component lanes; host caches via the stack's native build cache + native multi-arch runner matrix — NEVER QEMU emulation):
   - **Blocking (exit 1):** per touched submodule run native codegen (if exists) → lint → tests → hermetic/static build in builder image → secret-leak scan (new dirs/`*.env` patterns, `git submodule status | grep "^-"`) → submodule-pointer freshness (`git submodule status | grep "^\+"`). Any failure → `exit 1` with failing command. No project names in rule body. Fails pre-push ~15s, not remote. **Advisory (exit 0):** semantic diff output (if available) or `git diff --stat` + manifest version + `CHANGELOG.md` presence. Inform, never block.
-- Check script maintenance [CRITICAL]: Workspace orchestrator root and each submodule MUST maintain an executable `./scripts/check.sh` implementing the canonical 6-slot contract (Pointers, Secrets, Native Lanes, Tracked Assets, Clean-Clone Sandbox, Smoke) and supporting `--quick` (sub-10s iteration exiting before sandbox). Root orchestrator checks submodule freshness/credentials and delegates to submodule check scripts; submodules verify native format/lint/test lanes, assert compile-time asset tracking (`git ls-files --error-unmatch`), honor `--quick`, and verify committed buildability via hermetic clean clone (`mktemp -d` + `git clone .`). Agents MUST update check scripts whenever manifests, dependencies, or compile-time assets change. Consult `check` skill for anatomy and diagnostic procedures.
+- Check script maintenance [CRITICAL]: orchestrator root MUST maintain an executable `./scripts/check.sh` (Pointers, Secrets) delegating to the submodule's single `./project/scripts/check.sh` — the canonical 6-slot contract (Pointers, Secrets, Native Lanes matrix over `web`/`api`/`db`, Tracked Assets, Clean-Clone Sandbox, Smoke) with `--quick` (sub-10s iteration exiting before sandbox). The project gate runs every component's native format/lint/test lanes, asserts compile-time asset tracking (`git ls-files --error-unmatch`), honors `--quick`, and verifies committed buildability via hermetic clean clone (`mktemp -d` + `git clone .`). Agents MUST update check scripts whenever manifests, dependencies, or compile-time assets change. Consult `check` skill for anatomy and diagnostic procedures.
 
 ## 13. Guide Maintenance
 
