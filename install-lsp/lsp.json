@@ -21,6 +21,9 @@
       "initializationOptions": {},
       "settings": {
         "rust-analyzer": {
+          "cargo": {
+            "allFeatures": true
+          },
           "check": {
             "command": "clippy",
             "extraArgs": [
@@ -31,6 +34,56 @@
           }
         }
       }
+    },
+    {
+      "id": "pyright",
+      "enabled": true,
+      "include": [
+        "**/*.py"
+      ],
+      "rootMarkers": [
+        "pyproject.toml",
+        "requirements.txt",
+        ".git"
+      ],
+      "bin": "pyright-langserver",
+      "args": [
+        "--stdio"
+      ],
+      "cwd": "{root}",
+      "languageIdByExtension": {
+        ".py": "python"
+      },
+      "startupTimeoutMs": 30000,
+      "diagnosticsWaitMs": 1000,
+      "initializationOptions": {},
+      "settings": {}
+    },
+    {
+      "id": "ruff",
+      "enabled": true,
+      "include": [
+        "**/*.py"
+      ],
+      "rootMarkers": [
+        "pyproject.toml",
+        "ruff.toml",
+        ".ruff.toml",
+        "requirements.txt",
+        ".git"
+      ],
+      "bin": "ruff",
+      "args": [
+        "server"
+      ],
+      "cwd": "{root}",
+      "languageIdByExtension": {
+        ".py": "python"
+      },
+      "startupTimeoutMs": 30000,
+      "diagnosticsWaitMs": 500,
+      "initializationOptions": {},
+      "settings": {}
     },
     {
       "id": "typescript",
