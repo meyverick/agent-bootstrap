@@ -95,6 +95,11 @@ const ALLOW: Record<string, Set<string>> = {
   graft: new Set(["--version", "version", "upgrade"]),
   codegraph: new Set(["--version", "-V", "upgrade", "upgrade --check"]),
   headroom: new Set(["--version", "-v", "update", "update -y"]),
+  // caveman: probe + the one permitted config-writer-class verb. `setup --install`
+  // writes ONLY the tool's own binary directory (an installation, like ~/.cargo).
+  // Agent wiring is deliberately unreachable: `enable pi` writes ~/.pi, and our pi
+  // surface is the workspace package instead.
+  caveman: new Set(["--version", "setup --install"]),
 };
 
 function runGuarded(app: string, args: string[]) {
@@ -151,6 +156,67 @@ async function semLatest(): Promise<string | null> {
     return /^\d+\.\d+\.\d+$/.test(v) ? v : null;
   } catch {
     return null;
+  }
+}
+
+// Caveman: npm-channel CLI plus its own signed native runtime install.
+// The workspace pi manifest already ships `npm:@caveman-ai/pi`; without the CLI and
+// its binaries that extension loads but stays in permanent direct mode
+// ("caveman native runtime unreachable"). Binary versions are owned by the CLI that
+// installs them, so this ensure never tracks them itself.
+const CAVEMAN_PKG = "@caveman-ai/cli";
+function cavemanManualHint(reason: string, stderr: string): string {
+  return `${reason}Manual recovery: npm i -g ${CAVEMAN_PKG} && caveman setup --install${
+    stderr.trim() ? `\n${stderr.trim()}` : ""
+  }`;
+}
+function ensureCaveman(): void {
+  const probe = (): string | null => {
+    const r = runGuarded("caveman", ["--version"]);
+    if (r.code !== 0) return null;
+    const m = `${r.stdout}${r.stderr}`.match(/(\d+\.\d+\.\d+)/);
+    return m ? m[1] : null;
+  };
+  let local = probe();
+  if (local === null) {
+    log("caveman CLI missing — installing globally via npm...");
+    const r = run("npm", ["install", "-g", CAVEMAN_PKG]);
+    if (r.code !== 0)
+      fail(`npm install -g ${CAVEMAN_PKG} failed (exit ${r.code}):\n${r.stderr}\nHint: the workspace pi manifest declares npm:@caveman-ai/pi, which needs this CLI.`);
+    local = probe();
+    if (local === null)
+      fail(`caveman still not resolvable after npm install -g ${CAVEMAN_PKG} (installed, but not on PATH for this process).`);
+    log(`installed caveman CLI ${local}`);
+  }
+  // CLI version compare through the registry. A version bump is followed by the
+  // installer run below, which re-syncs binaries to the release the new CLI targets.
+  const v = run("npm", ["view", CAVEMAN_PKG, "version"]);
+  const latest = v.code === 0 ? v.stdout.trim() : "";
+  if (!latest) {
+    warn(`npm registry unreachable — skipping caveman CLI update check (local ${local})`);
+  } else if (latest !== local) {
+    log(`caveman ${local} < latest ${latest} — updating...`);
+    const r = run("npm", ["install", "-g", `${CAVEMAN_PKG}@latest`]);
+    if (r.code === 0) {
+      local = probe() ?? local;
+      log(`caveman CLI updated to ${local}`);
+    } else warn(`caveman CLI update failed (exit ${r.code}) — keeping ${local}\n${r.stderr.trim()}`);
+  } else log(`caveman CLI up to date (${local})`);
+  // Native runtime: exactly one non-interactive installer run per invocation. It
+  // verifies signatures + per-artifact checksums, installs atomically, and
+  // short-circuits on a verified local install, so re-runs cost nothing.
+  const inst = runGuarded("caveman", ["setup", "--install"]);
+  const out = `${inst.stdout}${inst.stderr}`.trim();
+  if (inst.code === 0) {
+    const lines = out.split("\n").filter((l) => l.trim());
+    log(`caveman native runtime ready${lines.length ? ` (${lines[lines.length - 1].trim()})` : ""}`);
+  } else {
+    warn(
+      cavemanManualHint(
+        `caveman native runtime install failed (exit ${inst.code}) — the pi extension stays in direct mode.\n`,
+        out,
+      ),
+    );
   }
 }
 
@@ -1151,6 +1217,7 @@ async function main(): Promise<void> {
   ensureCodegraph();
   await ensureHeadroom();
   await ensureBenzi();
+  ensureCaveman();
   gateJcodemunch();
   gateContext7();
   gateJev();
