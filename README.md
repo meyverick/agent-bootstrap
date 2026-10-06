@@ -132,11 +132,11 @@ other six servers are unaffected.
 ## LSP: 17 language servers
 
 Layer 1 ensures the server binaries from the embedded config — target **18/18, zero manual steps**. npm-able set
-(auto-install when the bin is missing — bin ← package, 11 packages):
+(auto-install when the bin is missing — bin ← package(s), 12 packages):
 
 | Bin | npm package |
 |-----|-------------|
-| `typescript-language-server` | `typescript-language-server` |
+| `typescript-language-server` | `typescript-language-server` + `typescript` (companion: the server reports no valid installation without its compiler) |
 | `svelteserver` | `svelte-language-server` |
 | `vscode-json-language-server` | `vscode-langservers-extracted` |
 | `vscode-html-language-server` | `vscode-langservers-extracted` |

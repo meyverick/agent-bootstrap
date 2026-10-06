@@ -594,8 +594,10 @@ async function ensureDotnet(): Promise<void> {
   log(".NET SDK provisioned");
 }
 
-const LSP_NPM: Record<string, string> = {
-  "typescript-language-server": "typescript-language-server",
+// Values are one package or, for wrappers needing a runtime beside them, several.
+const LSP_NPM: Record<string, string | string[]> = {
+  // Wrapper + its compiler: the server answers without it but reports "no valid TypeScript installation".
+  "typescript-language-server": ["typescript-language-server", "typescript"],
   svelteserver: "svelte-language-server",
   "vscode-json-language-server": "vscode-langservers-extracted",
   "vscode-html-language-server": "vscode-langservers-extracted",
@@ -674,7 +676,14 @@ async function ensureLspBins(): Promise<void> {
     else warn(`LSP bin missing: ${bin} — no known channel; install it manually`);
   }
   // npm channel (13 bins) — dedupe by package (vscode-langservers-extracted serves 2 bins).
-  const pkgs = Array.from(new Set(missingNpm.map((b) => LSP_NPM[b])));
+  const pkgs = Array.from(
+    new Set(
+      missingNpm.flatMap((b) => {
+        const e = LSP_NPM[b];
+        return typeof e === "string" ? [e] : e;
+      }),
+    ),
+  );
   let installed = 0;
   for (const pkg of pkgs) {
     log(`installing LSP package ${pkg}...`);
