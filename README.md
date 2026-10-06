@@ -36,7 +36,7 @@ Unknown flags are ignored — the script is also invoked by other tooling.
 ```
 agent-bootstrap/            <- this repo (submodule of the private orchestrator)
 ├── install.ts               <- THE bootstrap (self-contained: all payloads embedded)
-├── install-lsp/lsp.json     <- editable source of truth for the embedded 19-server
+├── install-lsp/lsp.json     <- editable source of truth for the embedded 18-server
 │                               LSP config (the script never reads it at runtime;
 │                               to change it: edit this file, then re-embed into
 │                               the LSP_CONFIG const in install.ts)
@@ -65,10 +65,10 @@ here).
 | Layer | Writes | When |
 |-------|--------|------|
 | 0. Foundation | embedded rule-book base → `./AGENTS.md` (**written only when the file is absent, or on `--prune`**; otherwise the book region is preserved byte-for-byte) + upgrade cleanup (stale manifest, dropped skills) + `./scripts/check-deps.ts` + `openspec/reports/` | FIRST — before every other step, every run; **zero agentic/bunx** |
-| 1. Machine | **self-provisions prerequisites** (uv · Node 22 LTS · rustup · .NET SDK — user-scope, in-process PATH) then tool CLIs (npm/uv global packages) — **never** `~/` dotfile configs; LSP bins: **19/19 auto** (14 npm + 5 toolchain channels) | every run (update checks are read-only, offline-tolerant) |
+| 1. Machine | **self-provisions prerequisites** (uv · Node 22 LTS · rustup · .NET SDK — user-scope, in-process PATH) then tool CLIs (npm/uv global packages) — **never** `~/` dotfile configs; LSP bins: **18/18 auto** (12 npm + 6 toolchain channels) | every run (update checks are read-only, offline-tolerant) |
 | 1c. Caveman runtime | `@caveman-ai/cli` via npm (install when absent, registry update check) then one non-interactive `caveman setup --install` per run, which verifies signatures + per-artifact checksums and syncs the tool's own binary directory (4 required + 2 optional binaries). User-scope, **no skills, no agent wiring, no `~/` pi writes** — the pi surface stays the workspace package. Runtime-install failure is a warning, never a failed run. Manual recovery: `npm i -g @caveman-ai/cli && caveman setup --install` | every run (installer short-circuits on a verified local install) |
 | 1b. openspec profile | `~/.config/openspec/config.json` — canonical 3 keys merged, everything else preserved, **zero secrets** | every run + converges |
-| 2. Project MCP + LSP | `.pi/mcp.json` + `.agents/mcp_config.json` (9 servers, **env-ref credentials** where applicable — `benzi` carries none: auth lives in its own `~/.benzi/config.json`) AND `.pi/lsp.json` + `.antigravity/lsp.json` (full 19-server LSP config) | first run + converges |
+| 2. Project MCP + LSP | `.pi/mcp.json` + `.agents/mcp_config.json` (9 servers, **env-ref credentials** where applicable — `benzi` carries none: auth lives in its own `~/.benzi/config.json`) AND `.pi/lsp.json` + `.antigravity/lsp.json` (full 18-server LSP config) | first run + converges |
 | 2b. Project Pi packages | `.pi/settings.json` — `packages[]` from `install-pi-extensions/extensions.json`, merged **workspace-only** (template-wins for declared packages so version bumps propagate; foreign packages + sibling keys kept; `--prune` resets `packages` to ours. No `pi` spawn, never `~/.pi`) + hint: grant project trust on the first pi session to load them | every run + converges. The caveman extension's own runtime is provisioned by layer 1c — the package alone loads but stays in direct mode |
 | 3. Project rules | `AGENTS.md` — foundation base + our 9 balise activation blocks appended on top (base = `install-agents/AGENTS.md`, created once then preserved; `--prune` reinstalls it; balise region re-appended after — byte-stable) | every run (blocks rewrite; base only on create / `--prune`) |
 | 4. Project skills | `.agents/skills/` — 23 deployed skills (9 tool + 14 ours: kit 5, openspec-extra 6, extra-skills 3; 133 files incl. 23 `.agent-bootstrap` ownership markers, no evals/transcripts) = 23 disjoint dirs. **Whole-tree convergence**: any drift (changed file, missing/extra file, missing marker) replaces the entire skill dir; a marker-bearing dir absent from the payload is deleted as stale; unmarked (foreign) dirs are never read or touched | every run + converges |
@@ -131,8 +131,8 @@ other six servers are unaffected.
 
 ## LSP: 17 language servers
 
-Layer 1 ensures the server binaries from the embedded config — target **19/19, zero manual steps**. npm-able set
-(auto-install when the bin is missing — bin ← package, 13 packages):
+Layer 1 ensures the server binaries from the embedded config — target **18/18, zero manual steps**. npm-able set
+(auto-install when the bin is missing — bin ← package, 11 packages):
 
 | Bin | npm package |
 |-----|-------------|
@@ -143,11 +143,9 @@ Layer 1 ensures the server binaries from the embedded config — target **19/19,
 | `yaml-language-server` | `yaml-language-server` |
 | `gh-actions-language-server` | `gh-actions-language-server` |
 | `tailwindcss-language-server` | `tailwindcss-language-server` |
-| `sql-language-server` | `sql-language-server` |
 | `biome` | `@biomejs/biome` |
 | `docker-langserver` | `dockerfile-language-server-nodejs` |
 | `bash-language-server` | `bash-language-server` |
-| `taplo` | `@taplo/cli` |
 | `buf` | `@bufbuild/buf` |
 | `pyright-langserver` | `pyright` |
 
@@ -158,14 +156,15 @@ brew is never spawned):
 |-----|---------|
 | `rust-analyzer` | `rustup component add` (rustup provisioned if missing) |
 | `protols` | `cargo install` (via the rustup toolchain) |
+| `taplo` | `cargo install taplo-cli` (via the rustup toolchain; the npm dist lacks the LSP feature) |
 | `marksman` | official GitHub release binary → `~/.local/bin` |
 | `csharp-ls` | `dotnet tool install -g` (.NET SDK provisioned if missing) |
-| `ruff` | `uv tool install` (uv provisioned if missing) |
+| `ruff` | `uv tool install` with bound `ruff<0.16.10` (uv provisioned if missing; 0.16.10's server fails to start — last good 0.16.9, revisit on upstream fix) |
 
 A channel failure warns with verbatim output, the run continues, and the
 config is still written.
 
-Layer 2 writes the full 19-server config to BOTH:
+Layer 2 writes the full 18-server config to BOTH:
 
 - `./.pi/lsp.json` — pi-lsp native project path. **First session will prompt you to
   trust the project LSP config** (sha256 + binary list pinned) — approve once per

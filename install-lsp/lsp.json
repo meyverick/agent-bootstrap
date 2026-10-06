@@ -309,32 +309,6 @@
       "settings": {}
     },
     {
-      "id": "sql",
-      "enabled": true,
-      "include": [
-        "**/*.sql"
-      ],
-      "rootMarkers": [
-        ".sqllsrc.json",
-        "Cargo.toml",
-        ".git"
-      ],
-      "bin": "sql-language-server",
-      "args": [
-        "up",
-        "--method",
-        "stdio"
-      ],
-      "cwd": "{root}",
-      "languageIdByExtension": {
-        ".sql": "sql"
-      },
-      "startupTimeoutMs": 30000,
-      "diagnosticsWaitMs": 1000,
-      "initializationOptions": {},
-      "settings": {}
-    },
-    {
       "id": "buf",
       "enabled": true,
       "include": [
@@ -347,7 +321,8 @@
       ],
       "bin": "buf",
       "args": [
-        "lsp"
+        "lsp",
+        "serve"
       ],
       "cwd": "{root}",
       "languageIdByExtension": {
