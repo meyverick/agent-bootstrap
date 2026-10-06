@@ -5,9 +5,10 @@
 // declared server with a per-server timeout (retry-once on timeouts only).
 // Exit 0 when every server answers; non-zero otherwise. This is what would
 // have caught the feature-stripped taplo binary and the hanging ruff server.
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const scriptDir = new URL(".", import.meta.url).pathname;
+const scriptDir = dirname(fileURLToPath(import.meta.url));
 const configPath = Bun.argv[2] ? resolve(process.cwd(), Bun.argv[2]) : join(scriptDir, "lsp.json");
 const TIMEOUT_MS = 30000;
 
@@ -81,7 +82,7 @@ async function handshake(id: string, bin: string, args: string[]): Promise<void>
     // A faithful client simulation: real clients send workspaceFolders and
     // initializationOptions (pi-lsp sends both), and some servers reject a bare
     // initialize that omits them.
-    const rootUri = `file://${scriptDir}`;
+    const rootUri = pathToFileURL(scriptDir).href;
     const init = {
       jsonrpc: "2.0",
       id: 1,
