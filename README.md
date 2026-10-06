@@ -8,7 +8,7 @@ for pi + agy, skills), and runs the per-repo inits.
 
 ```bash
 cd your-project/
-curl -fsSL https://raw.githubusercontent.com/meyverick/agent-bootstrap/main/install.ts | bun
+curl -fsSL https://raw.githubusercontent.com/meyverick/agent-bootstrap/main/install.ts | bun -
 ```
 
 Or from a local checkout (repo root): `bun install.ts`.
