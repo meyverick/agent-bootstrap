@@ -7,7 +7,6 @@ for pi + agy, skills), and runs the per-repo inits.
 ## Usage
 
 ```bash
-cd your-project/
 curl -fsSL https://raw.githubusercontent.com/meyverick/agent-bootstrap/main/install.ts | bun -
 ```
 
@@ -98,7 +97,7 @@ never spawns it and never writes credentials into the project.
 ## Global openspec profile
 
 The bootstrap ensures openspec's canonical profile in the file reported by
-`openspec config path` (the **one deliberate `~/.config` exception** — openspec's
+`openspec config path` (the **first deliberate `~/` exception** — openspec's
 config scope is global-only; same class as npm globals, zero secrets):
 
 | Key | Value |
@@ -167,6 +166,16 @@ Layer 2 writes the full 18-server config to BOTH:
 - `./.pi-lens.json` — pi-lens project config (report-only, rust/json overrides,
   buf/protols/tailwindcss custom servers). Stale `./.pi/lsp.json` /
   `./.antigravity/lsp.json` files on disk are left untouched, never written.
+
+## Global pi-lens preference
+
+The widget switch is global-only, so the bootstrap also ensures
+`widget.visible: false` in the machine-global pi-lens config
+(`~/.pi-lens/config.json`, `%USERPROFILE%\.pi-lens\config.json` on Windows,
+`PI_LENS_CONFIG_PATH` wins when set) — the **second deliberate `~/` exception**.
+Parse-or-create, that key only, everything else preserved, write-only-on-change;
+any failure warns and continues without failing the run. A project
+`./.pi-lens.json` cannot carry this key (pi-lens warns and ignores it there).
 
 Merge: per-server-id template-wins; any extra server entries you add yourself are
 preserved. Zero secrets — globs, bins, and settings only.

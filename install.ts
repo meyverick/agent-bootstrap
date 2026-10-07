@@ -63,7 +63,7 @@ try {
 const DEFAULT_DB_PAYLOAD = "{\n    \"wikis\": \"qmd collection add . --name wikis --mask \\\"**/wiki/**/*.{md,markdown,mdx,txt}\\\"\",\n    \"llms\": \"qmd collection add . --name llms --mask \\\"**/*llms*.{md,markdown,mdx,txt,json}\\\"\",\n    \"openspec\": \"qmd collection add openspec/ --name openspec --mask \\\"**/*.{md,markdown,mdx,txt}\\\"\",\n    \"references\": \"qmd collection add references/ --name references --mask \\\"**/*.{md,markdown,mdx,txt,yml,yaml}\\\"\",\n    \"directives\": \"qmd collection add . --name directives --mask \\\"**/AGENTS.md,**/CLAUDE.md,**/README.md,**/CHANGELOG.md,**/SECURITY.md,**/.cursorrules,**/.windsurfrules\\\"\",\n    \"skills\": \"qmd collection add .agents/skills/ --name skills --mask \\\"**/SKILL.md,**/references/**/*.md\\\"\"\n}\n";
 
 // Embedded pi package manifest (workspace-only; merged into ./.pi/settings.json).
-const PI_PACKAGES_PAYLOAD = "{\"packages\": [\"npm:pi-ponytail\",\"npm:@caveman-ai/pi\", \"npm:pi-memory\", \"npm:pi-web-access\", \"npm:pi-lens\", \"npm:pi-jules\", \"npm:pi-jev\"]}";
+const PI_PACKAGES_PAYLOAD = "{\"packages\": [\"npm:pi-ponytail\",\"npm:@caveman-ai/pi\", \"npm:pi-memory\", \"npm:pi-web-access\", \"npm:pi-lens\", \"npm:pi-jev\"]}";
 
 // Embedded MCP template: 9 entries; credentials are ENV REFS ONLY — a literal
 // key must never be written to a project file (repo-safety).
@@ -1108,6 +1108,38 @@ function ensureOpenspecConfig(): void {
   writeFileSync(configPath, `${JSON.stringify(cfg, null, 2)}\n`);
   log(`openspec config written: ${configPath} (profile=custom, delivery=skills, 12 workflows)`);
 }
+// Second documented ~/ exception (after the openspec profile): the widget
+// switch is global-only, so hiding it by default needs one machine merge.
+// Cosmetic key: any failure warns and continues, never failing the run.
+function ensureLensGlobal(): void {
+  const fromEnv = (process.env.PI_LENS_CONFIG_PATH ?? "").trim();
+  const p = fromEnv || join(homedir(), ".pi-lens", "config.json");
+  let cfg: Record<string, unknown>;
+  try {
+    if (!existsSync(p)) cfg = {};
+    else cfg = JSON.parse(readFileSync(p, "utf8"));
+    if (typeof cfg !== "object" || cfg === null || Array.isArray(cfg)) throw new Error("expected JSON object");
+  } catch (e) {
+    warn(`lens global config skipped (${p}): ${e instanceof Error ? e.message : e}`);
+    return;
+  }
+  const before = JSON.stringify(cfg);
+  const widget = (cfg.widget !== null && typeof cfg.widget === "object" && !Array.isArray(cfg.widget) ? cfg.widget : {}) as Record<string, unknown>;
+  widget.visible = false;
+  cfg.widget = widget;
+  if (before === JSON.stringify(cfg)) {
+    log(`lens global config unchanged: ${p}`);
+    return;
+  }
+  try {
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, `${JSON.stringify(cfg, null, 2)}\n`);
+  } catch (e) {
+    warn(`lens global config skipped (${p}): ${e instanceof Error ? e.message : e}`);
+    return;
+  }
+  log(`lens global config written: ${p} (widget.visible=false)`);
+}
 
 // ---- foundation (STEP 0 — runs FIRST): rule-book base + upgrade cleanup ----
 function writeBase(): void {
@@ -1254,6 +1286,7 @@ async function main(): Promise<void> {
   gateJev();
   ensureOpenspec();
   ensureOpenspecConfig();
+  ensureLensGlobal();
   await ensureLspBins();
   // Layers 2-5: project tree only
   mergeProjectMcp();
