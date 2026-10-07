@@ -1,6 +1,5 @@
 {
   "packages": [
-    "npm:pi-lsp",
     "npm:pi-ponytail",
     "npm:@caveman-ai/pi",
     "npm:pi-memory",

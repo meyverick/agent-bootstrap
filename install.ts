@@ -63,11 +63,10 @@ try {
 const DEFAULT_DB_PAYLOAD = "{\n    \"wikis\": \"qmd collection add . --name wikis --mask \\\"**/wiki/**/*.{md,markdown,mdx,txt}\\\"\",\n    \"llms\": \"qmd collection add . --name llms --mask \\\"**/*llms*.{md,markdown,mdx,txt,json}\\\"\",\n    \"openspec\": \"qmd collection add openspec/ --name openspec --mask \\\"**/*.{md,markdown,mdx,txt}\\\"\",\n    \"references\": \"qmd collection add references/ --name references --mask \\\"**/*.{md,markdown,mdx,txt,yml,yaml}\\\"\",\n    \"directives\": \"qmd collection add . --name directives --mask \\\"**/AGENTS.md,**/CLAUDE.md,**/README.md,**/CHANGELOG.md,**/SECURITY.md,**/.cursorrules,**/.windsurfrules\\\"\",\n    \"skills\": \"qmd collection add .agents/skills/ --name skills --mask \\\"**/SKILL.md,**/references/**/*.md\\\"\"\n}\n";
 
 // Embedded pi package manifest (workspace-only; merged into ./.pi/settings.json).
-const PI_PACKAGES_PAYLOAD = "{\"packages\": [\"npm:pi-lsp\", \"npm:pi-ponytail\", \"npm:@caveman-ai/pi\", \"npm:pi-memory\", \"npm:pi-web-access\", \"npm:pi-lens\", \"npm:pi-jules\", \"npm:pi-jev\"]}";
+const PI_PACKAGES_PAYLOAD = "{\"packages\": [\"npm:pi-ponytail\",\"npm:@caveman-ai/pi\", \"npm:pi-memory\", \"npm:pi-web-access\", \"npm:pi-lens\", \"npm:pi-jules\", \"npm:pi-jev\"]}";
 
 // Embedded MCP template: 9 entries; credentials are ENV REFS ONLY — a literal
 // key must never be written to a project file (repo-safety).
-const LSP_CONFIG = JSON.parse("{\"version\": 1, \"servers\": [{\"id\": \"rust-analyzer\", \"enabled\": true, \"include\": [\"**/*.rs\"], \"rootMarkers\": [\"Cargo.toml\"], \"bin\": \"rust-analyzer\", \"args\": [], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".rs\": \"rust\"}, \"startupTimeoutMs\": 60000, \"diagnosticsWaitMs\": 3000, \"initializationOptions\": {}, \"settings\": {\"rust-analyzer\": {\"cargo\": {\"allFeatures\": true}, \"check\": {\"command\": \"clippy\", \"extraArgs\": [\"--\", \"-D\", \"warnings\"]}}}}, {\"id\": \"pyright\", \"enabled\": true, \"include\": [\"**/*.py\"], \"rootMarkers\": [\"pyproject.toml\", \"requirements.txt\", \".git\"], \"bin\": \"pyright-langserver\", \"args\": [\"--stdio\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".py\": \"python\"}, \"startupTimeoutMs\": 30000, \"diagnosticsWaitMs\": 1000, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"ruff\", \"enabled\": true, \"include\": [\"**/*.py\"], \"rootMarkers\": [\"pyproject.toml\", \"ruff.toml\", \".ruff.toml\", \"requirements.txt\", \".git\"], \"bin\": \"ruff\", \"args\": [\"server\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".py\": \"python\"}, \"startupTimeoutMs\": 30000, \"diagnosticsWaitMs\": 500, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"typescript\", \"enabled\": true, \"include\": [\"**/*.ts\", \"**/*.tsx\", \"**/*.js\", \"**/*.jsx\", \"**/*.mjs\", \"**/*.cjs\"], \"rootMarkers\": [\"tsconfig.json\", \"package.json\"], \"bin\": \"typescript-language-server\", \"args\": [\"--stdio\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".ts\": \"typescript\", \".tsx\": \"typescriptreact\", \".js\": \"javascript\", \".jsx\": \"javascriptreact\", \".mjs\": \"javascript\", \".cjs\": \"javascript\"}, \"startupTimeoutMs\": 45000, \"diagnosticsWaitMs\": 1500, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"svelte\", \"enabled\": true, \"include\": [\"**/*.svelte\"], \"rootMarkers\": [\"svelte.config.js\", \"package.json\"], \"bin\": \"svelteserver\", \"args\": [\"--stdio\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".svelte\": \"svelte\"}, \"startupTimeoutMs\": 45000, \"diagnosticsWaitMs\": 2000, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"marksman\", \"enabled\": true, \"include\": [\"**/*.md\", \"**/*.markdown\"], \"rootMarkers\": [\".marksman.toml\", \".git\"], \"bin\": \"marksman\", \"args\": [\"server\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".md\": \"markdown\", \".markdown\": \"markdown\"}, \"startupTimeoutMs\": 30000, \"diagnosticsWaitMs\": 1000, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"json\", \"enabled\": true, \"include\": [\"**/*.json\", \"**/*.jsonc\"], \"rootMarkers\": [\"package.json\", \"tsconfig.json\", \".git\"], \"bin\": \"vscode-json-language-server\", \"args\": [\"--stdio\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".json\": \"json\", \".jsonc\": \"jsonc\"}, \"startupTimeoutMs\": 30000, \"diagnosticsWaitMs\": 1000, \"initializationOptions\": {\"provideFormatter\": false}, \"settings\": {\"json\": {\"format\": {\"enable\": false}, \"validate\": {\"enable\": true}}}}, {\"id\": \"taplo\", \"enabled\": true, \"include\": [\"**/Cargo.toml\", \"**/*.toml\"], \"rootMarkers\": [\"Cargo.toml\", \".marksman.toml\", \".git\"], \"bin\": \"taplo\", \"args\": [\"lsp\", \"stdio\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".toml\": \"toml\"}, \"startupTimeoutMs\": 30000, \"diagnosticsWaitMs\": 1000, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"yaml\", \"enabled\": true, \"include\": [\"**/*.yml\", \"**/*.yaml\"], \"rootMarkers\": [\".git\", \"docker-compose.yml\", \"package.json\"], \"bin\": \"yaml-language-server\", \"args\": [\"--stdio\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".yml\": \"yaml\", \".yaml\": \"yaml\"}, \"startupTimeoutMs\": 30000, \"diagnosticsWaitMs\": 1000, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"github-actions\", \"enabled\": true, \"include\": [\".github/workflows/*.yml\", \".github/workflows/*.yaml\"], \"rootMarkers\": [\".github\", \".git\"], \"bin\": \"gh-actions-language-server\", \"args\": [\"--stdio\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".yml\": \"yaml\", \".yaml\": \"yaml\"}, \"startupTimeoutMs\": 30000, \"diagnosticsWaitMs\": 1000, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"tailwindcss\", \"enabled\": true, \"include\": [\"**/*.svelte\", \"**/*.html\", \"**/*.css\"], \"rootMarkers\": [\"package.json\", \"svelte.config.js\", \".git\"], \"bin\": \"tailwindcss-language-server\", \"args\": [\"--stdio\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".svelte\": \"svelte\", \".html\": \"html\", \".css\": \"css\"}, \"startupTimeoutMs\": 30000, \"diagnosticsWaitMs\": 1000, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"buf\", \"enabled\": true, \"include\": [\"**/*.proto\"], \"rootMarkers\": [\"buf.yaml\", \"buf.work.yaml\", \".git\"], \"bin\": \"buf\", \"args\": [\"lsp\", \"serve\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".proto\": \"proto\"}, \"startupTimeoutMs\": 30000, \"diagnosticsWaitMs\": 1000, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"protols\", \"enabled\": true, \"include\": [\"**/*.proto\"], \"rootMarkers\": [\"Cargo.toml\", \"buf.yaml\", \".git\"], \"bin\": \"protols\", \"args\": [], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".proto\": \"proto\"}, \"startupTimeoutMs\": 30000, \"diagnosticsWaitMs\": 1000, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"biome\", \"enabled\": true, \"include\": [\"**/*.ts\", \"**/*.tsx\", \"**/*.js\", \"**/*.jsx\", \"**/*.mjs\", \"**/*.cjs\", \"**/*.json\", \"**/*.jsonc\"], \"rootMarkers\": [\"biome.json\", \"biome.jsonc\", \"package.json\", \".git\"], \"bin\": \"biome\", \"args\": [\"lsp-proxy\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".ts\": \"typescript\", \".tsx\": \"typescriptreact\", \".js\": \"javascript\", \".jsx\": \"javascriptreact\", \".mjs\": \"javascript\", \".cjs\": \"javascript\", \".json\": \"json\", \".jsonc\": \"jsonc\"}, \"startupTimeoutMs\": 30000, \"diagnosticsWaitMs\": 500, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"html\", \"enabled\": true, \"include\": [\"**/*.html\"], \"rootMarkers\": [\"package.json\", \".git\"], \"bin\": \"vscode-html-language-server\", \"args\": [\"--stdio\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".html\": \"html\"}, \"startupTimeoutMs\": 30000, \"diagnosticsWaitMs\": 1000, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"dockerfile\", \"enabled\": true, \"include\": [\"**/Dockerfile*\", \"**/*.dockerfile\"], \"rootMarkers\": [\"Dockerfile\", \".git\"], \"bin\": \"docker-langserver\", \"args\": [\"--stdio\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".dockerfile\": \"dockerfile\"}, \"startupTimeoutMs\": 30000, \"diagnosticsWaitMs\": 1000, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"bash\", \"enabled\": true, \"include\": [\"**/*.sh\", \"**/*.bash\"], \"rootMarkers\": [\".git\"], \"bin\": \"bash-language-server\", \"args\": [\"start\"], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".sh\": \"shellscript\", \".bash\": \"shellscript\"}, \"startupTimeoutMs\": 30000, \"diagnosticsWaitMs\": 1000, \"initializationOptions\": {}, \"settings\": {}}, {\"id\": \"csharp\", \"enabled\": true, \"include\": [\"**/*.cs\"], \"rootMarkers\": [\".sln\", \".csproj\", \".git\"], \"bin\": \"csharp-ls\", \"args\": [], \"cwd\": \"{root}\", \"languageIdByExtension\": {\".cs\": \"csharp\"}, \"startupTimeoutMs\": 45000, \"diagnosticsWaitMs\": 1000, \"initializationOptions\": {}, \"settings\": {}}]}") as { version: number; servers: Array<Record<string, unknown>> };
 const MCP_TEMPLATE: Record<string, object> = {
   jev: {
     command: "npx",
@@ -85,6 +84,10 @@ const MCP_TEMPLATE: Record<string, object> = {
   codegraph: { command: "codegraph", args: ["serve", "--mcp"] },
   headroom: { command: "headroom", args: ["mcp", "serve"] },
   benzi: { command: "benzi-mcp", args: [] },
+  "pi-lens": {
+    command: "npx",
+    args: ["-y", "-p", "pi-lens", "-p", "@earendil-works/pi-tui", "-p", "typebox", "pi-lens-mcp"],
+  },
 };
 
 // --------------------------------------------------------- spawn allowlists -
@@ -665,8 +668,8 @@ async function installMarksmanBinary(): Promise<number> {
 }
 
 async function ensureLspBins(): Promise<void> {
-  const declared = (LSP_CONFIG.servers ?? []).map((s) => String(s.bin ?? "")).filter(Boolean);
-  if (declared.length !== 18) fail(`LSP config must declare 18 server bins, found ${declared.length}`);
+  const declared = [...Object.keys(LSP_NPM), ...Object.keys(LSP_CHANNELS)];
+  if (declared.length !== 18) fail(`LSP bins must declare 18 binaries, found ${declared.length}`);
   const missingNpm: string[] = [];
   const missingChannel: string[] = [];
   for (const bin of declared) {
@@ -730,58 +733,60 @@ async function ensureLspBins(): Promise<void> {
   const present = declared.length - stillMissing;
   log(`lsp bins: ${present}/18 present${installed ? `, ${installed} package(s) installed` : ""}${channeled ? `, ${channeled} via toolchain channel` : ""}${stillMissing ? `, ${stillMissing} missing (see warnings)` : ""}`);
 }
-// ---- LSP project layer: dual-write config (pi + agy), per-server-id template-wins
-function writeLspConfig(): void {
-  const targets = [".pi/lsp.json", ".antigravity/lsp.json"];
-  for (const rel of targets) {
-    const p = join(PROJECT_ROOT, rel);
-    let existing: { version?: number; servers?: Array<Record<string, unknown>> } = {};
-    if (existsSync(p)) {
-      try {
-        existing = JSON.parse(readFileSync(p, "utf8"));
-      } catch (e) {
-        fail(`unparseable JSON — refusing to overwrite: ${p}\n${e instanceof Error ? e.message : e}`);
-      }
-      if (typeof existing !== "object" || existing === null || Array.isArray(existing)) fail(`expected JSON object: ${p}`);
+// ---- Lens project layer: .pi-lens.json (report-only + overrides + customs)
+// pi-lens deep-merges serverOverrides onto its bundled defaults; custom
+// servers launch through the same .cmd-safe path as bundled ones.
+const LENS_TEMPLATE: Record<string, unknown> = {
+  lsp: {
+    serverOverrides: {
+      rust: { initializationOptions: { cargo: { allFeatures: true }, check: { command: "clippy", extraArgs: ["--", "-D", "warnings"] } } },
+      json: { initializationOptions: { provideFormatter: false, json: { format: { enable: false }, validate: { enable: true } } } },
+    },
+    servers: {
+      buf: { name: "buf", extensions: [".proto"], command: "buf", args: ["lsp", "serve"], rootMarkers: ["buf.yaml", "buf.work.yaml", ".git"] },
+      protols: { name: "protols", extensions: [".proto"], command: "protols", args: [], rootMarkers: ["Cargo.toml", "buf.yaml", ".git"] },
+      tailwindcss: { name: "Tailwind CSS", extensions: [".svelte", ".html", ".css"], command: "tailwindcss-language-server", args: ["--stdio"], rootMarkers: ["package.json", "svelte.config.js", ".git"] },
+    },
+  },
+  format: { enabled: false },
+  autofix: { enabled: false },
+};
+function writeLensConfig(): void {
+  const rel = ".pi-lens.json";
+  const p = join(PROJECT_ROOT, rel);
+  let cfg: Record<string, unknown> = {};
+  if (existsSync(p)) {
+    try {
+      cfg = JSON.parse(readFileSync(p, "utf8"));
+    } catch (e) {
+      fail(`unparseable JSON — refusing to overwrite: ${p}\n${e instanceof Error ? e.message : e}`);
     }
-    // Per-server-id, template-wins (mirrors pi-lsp's own merge semantics);
-    // user-added extra server ids are preserved.
-    const templateById = new Map((LSP_CONFIG.servers ?? []).map((s) => [String(s.id), s]));
-    const existingServers = Array.isArray(existing.servers) ? existing.servers : [];
-    const merged: Array<Record<string, unknown>> = [];
-    if (PRUNE) {
-      // Managed key := ours exactly; extra server ids are dropped (logged), `version` survives.
-      for (const item of existingServers) {
-        const id = String((item as { id?: unknown }).id ?? "");
-        if (!templateById.has(id)) log(`lsp removed (--prune): ${id || "(no id)"}`);
-      }
-      templateById.forEach((t) => merged.push(t));
-    } else {
-      const seen = new Set<string>();
-      for (const item of existingServers) {
-        const id = String((item as { id?: unknown }).id ?? "");
-        const t = templateById.get(id);
-        if (t) {
-          merged.push(t);
-          seen.add(id);
-        } else {
-          merged.push(item); // preserve user-added extras
-        }
-      }
-      templateById.forEach((t, id) => {
-        if (!seen.has(id)) merged.push(t);
-      });
-    }
-    const out = { version: LSP_CONFIG.version, servers: merged };
-    const next = `${JSON.stringify(out, null, 2)}\n`;
-    if (existsSync(p) && readFileSync(p, "utf8") === next) {
-      log(`lsp config unchanged: ${rel}`);
-      continue;
-    }
-    mkdirSync(dirname(p), { recursive: true });
-    writeFileSync(p, next);
-    log(`lsp config written: ${rel} (${merged.length} servers)`);
+    if (typeof cfg !== "object" || cfg === null || Array.isArray(cfg)) fail(`expected JSON object: ${p}`);
   }
+  const before = JSON.stringify(cfg);
+  const tpl = LENS_TEMPLATE as { lsp: { serverOverrides: Record<string, unknown>; servers: Record<string, unknown> }; format: unknown; autofix: unknown };
+  const cur = (cfg.lsp !== null && typeof cfg.lsp === "object" && !Array.isArray(cfg.lsp) ? cfg.lsp : {}) as Record<string, unknown>;
+  if (PRUNE) {
+    const curOv = (cur.serverOverrides !== null && typeof cur.serverOverrides === "object" ? cur.serverOverrides : {}) as Record<string, unknown>;
+    for (const k of Object.keys(curOv)) if (!(k in tpl.lsp.serverOverrides)) log(`lens override removed (--prune): ${k}`);
+    const curSv = (cur.servers !== null && typeof cur.servers === "object" ? cur.servers : {}) as Record<string, unknown>;
+    for (const k of Object.keys(curSv)) if (!(k in tpl.lsp.servers)) log(`lens server removed (--prune): ${k}`);
+    cfg.lsp = { ...cur, serverOverrides: tpl.lsp.serverOverrides, servers: tpl.lsp.servers };
+  } else {
+    const ov = { ...((cur.serverOverrides !== null && typeof cur.serverOverrides === "object" ? cur.serverOverrides : {}) as Record<string, unknown>), ...tpl.lsp.serverOverrides };
+    const sv = { ...((cur.servers !== null && typeof cur.servers === "object" ? cur.servers : {}) as Record<string, unknown>), ...tpl.lsp.servers };
+    cfg.lsp = { ...cur, serverOverrides: ov, servers: sv };
+  }
+  cfg.format = tpl.format;
+  cfg.autofix = tpl.autofix;
+  const after = JSON.stringify(cfg);
+  if (before === after && existsSync(p)) {
+    log(`lens config unchanged: ${rel}`);
+    return;
+  }
+  mkdirSync(dirname(p), { recursive: true });
+  writeFileSync(p, `${JSON.stringify(cfg, null, 2)}\n`);
+  log(`lens config written: ${rel}`);
 }
 
 // ============================================================ LAYER 2: project MCP
@@ -834,6 +839,10 @@ function mergePiSettings(): void {
     const emitted = new Set<string>();
     for (const entry of existing) {
       const id = piPkgId(entry as string);
+      if (id === "npm:pi-lsp") {
+        log(`pi package retired: ${id}`);
+        continue;
+      }
       const at = wantIds.indexOf(id);
       if (at === -1) {
         packages.push(entry);
@@ -1221,7 +1230,7 @@ function runInits(): void {
 async function main(): Promise<void> {
   log(
     PRUNE
-      ? "mode: --prune (full install of managed surfaces: AGENTS.md book, lsp servers, mcpServers, pi packages)"
+      ? "mode: --prune (full install of managed surfaces: AGENTS.md book, lens config, mcpServers, pi packages)"
       : "mode: default (update ours, add missing, keep yours)",
   );
   // STEP 0: foundation FIRST — rule-book base must exist before the balise
@@ -1249,7 +1258,7 @@ async function main(): Promise<void> {
   // Layers 2-5: project tree only
   mergeProjectMcp();
   mergePiSettings();
-  writeLspConfig();
+  writeLensConfig();
   upsertAgents();
   extractSkills();
   deployScript();
