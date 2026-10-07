@@ -177,6 +177,15 @@ Parse-or-create, that key only, everything else preserved, write-only-on-change;
 any failure warns and continues without failing the run. A project
 `./.pi-lens.json` cannot carry this key (pi-lens warns and ignores it there).
 
+## pi-lens MCP peer pins
+
+The `pi-lens` MCP entry pins `@earendil-works/pi-tui@0.85.1` + `typebox@1`
+(`pi-lens` itself stays unpinned): unpinned `-p` resolves at latest and breaks
+fresh installs the day a peer ships past pi-lens's peer range (ERESOLVE under
+strict npm peers — observed with `pi-tui@1.0.4`). Maintenance rule: pins track
+pi-lens's peer range; re-probe the templated command on an empty npm cache
+whenever pi-lens bumps major or peer range.
+
 Merge: per-server-id template-wins; any extra server entries you add yourself are
 preserved. Zero secrets — globs, bins, and settings only.
 

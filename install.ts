@@ -86,7 +86,7 @@ const MCP_TEMPLATE: Record<string, object> = {
   benzi: { command: "benzi-mcp", args: [] },
   "pi-lens": {
     command: "npx",
-    args: ["-y", "-p", "pi-lens", "-p", "@earendil-works/pi-tui", "-p", "typebox", "pi-lens-mcp"],
+    args: ["-y", "-p", "pi-lens", "-p", "@earendil-works/pi-tui@0.85.1", "-p", "typebox@1", "pi-lens-mcp"],
   },
 };
 
