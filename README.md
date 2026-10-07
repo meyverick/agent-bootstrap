@@ -68,7 +68,7 @@ here).
 | 1b. openspec profile | `~/.config/openspec/config.json` — canonical 3 keys merged, everything else preserved, **zero secrets** | every run + converges |
 | 2. Project MCP + lens | `.pi/mcp.json` + `.agents/mcp_config.json` (10 servers, **env-ref credentials** where applicable — `benzi` carries none: auth lives in its own `~/.benzi/config.json`; `pi-lens` carries none: stdio transport) AND `.pi-lens.json` (report-only `format`/`autofix` off, `lsp.serverOverrides` rust+json, 3 custom `servers` buf/protols/tailwindcss) | first run + converges |
 | 2b. Project Pi packages | `.pi/settings.json` — `packages[]` from `install-pi-extensions/extensions.json`, merged **workspace-only** (template-wins for declared packages so version bumps propagate; foreign packages + sibling keys kept; `--prune` resets `packages` to ours. No `pi` spawn, never `~/.pi`) + hint: grant project trust on the first pi session to load them | every run + converges. The caveman extension's own runtime is provisioned by layer 1c — the package alone loads but stays in direct mode |
-| 3. Project rules | `AGENTS.md` — foundation base + our 9 balise activation blocks appended on top (base = `install-agents/AGENTS.md`, created once then preserved; `--prune` reinstalls it; balise region re-appended after — byte-stable) | every run (blocks rewrite; base only on create / `--prune`) |
+| 3. Project rules | `AGENTS.md` — foundation base + our 10 balise activation blocks appended on top (base = `install-agents/AGENTS.md`, created once then preserved; `--prune` reinstalls it; balise region re-appended after — byte-stable) | every run (blocks rewrite; base only on create / `--prune`) |
 | 4. Project skills | `.agents/skills/` — 23 deployed skills (9 tool + 14 ours: kit 5, openspec-extra 6, extra-skills 3; 133 files incl. 23 `.agent-bootstrap` ownership markers, no evals/transcripts) = 23 disjoint dirs. **Whole-tree convergence**: any drift (changed file, missing/extra file, missing marker) replaces the entire skill dir; a marker-bearing dir absent from the payload is deleted as stale; unmarked (foreign) dirs are never read or touched | every run + converges |
 | 5. Repo inits | `graft build`, `qmd init .` + **qmd collections seeded** (6 from `default-db.json` — wikis/llms/openspec/references/directives/skills, skip-by-name) + `qmd update`, `codegraph init` — marker-gated; **`openspec init --tools agents --force` — EVERY run (no marker, user's canonical command)** | gated ones only when `graft/` / `.qmd` / `.codegraph` is absent; openspec always; **re-run `qmd update` after skill-changing runs to refresh the skills collection** |
 
@@ -111,7 +111,7 @@ This is the non-interactive equivalent of running `openspec config profile` to
 enable the expanded ("extra") skill set on a fresh machine; `init` then
 materializes the skill files per this config. **No skill, no AGENTS.md block, and
 no MCP config are authored for openspec** — upstream's `delivery: skills` owns
-the skill layer, and openspec has no server. The eight balise blocks stay eight.
+the skill layer, and openspec has no server. The ten balise blocks stay ten.
 
 ## Required environment variables
 
