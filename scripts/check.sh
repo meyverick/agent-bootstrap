@@ -72,9 +72,9 @@ echo "clean clone builds and tests: OK"
 
 # Slot 6: Smoke / runtime test
 echo "== 6/6 smoke / runtime test =="
-if [ -f "agents/AGENTS.md" ]; then
-    [ -s "agents/AGENTS.md" ] || { echo "FAIL: AGENTS.md is empty"; exit 1; }
-    echo "  AGENTS.md present and non-empty"
+if [ -f "project-template/AGENTS.md" ]; then
+    [ -s "project-template/AGENTS.md" ] || { echo "FAIL: project-template/AGENTS.md is empty"; exit 1; }
+    echo "  project-template/AGENTS.md present and non-empty"
 fi
 echo "smoke test: OK"
 

@@ -24,12 +24,12 @@ It is strictly **language-agnostic** and **framework-agnostic**. Situational dep
 
 * **Two-Tier Topology & Naming**:
   - **Tier 1 (Root Orchestrator `./`)**: The parent `<project>-workspace` repository holding agent configuration, orchestration metadata, and environment definitions.
-  - **Tier 2 (Codebase Submodule `./module/`)**: The single Git submodule holding all application source code, domain packages, and native toolchains. Internal layout of `./module/` is project-determined (e.g., monolithic `src/`, modular packages, or multi-tier services); no specific subfolder taxonomy (`web/`, `api/`, etc.) is mandated.
+  - **Tier 2 (Codebase Submodule `./modules/`)**: The single Git submodule holding all application source code, domain packages, and native toolchains. Internal layout of `./modules/` is project-determined (e.g., monolithic `src/`, modular packages, or multi-tier services); no specific subfolder taxonomy (`web/`, `api/`, etc.) is mandated.
 * **Command Context & Autonomous Toolchain Discovery [CRITICAL]**:
-  - Execution CWD: All build, test, lint, and package commands must execute with working directory set strictly inside the codebase submodule (`./module/` or its subdirectories). Never execute codebase toolchain commands in the orchestrator root.
-  - Autonomous Discovery: Agents must autonomously inspect `./module/` to deduce project manifests (`Cargo.toml`, `package.json`, `go.mod`, `pyproject.toml`, etc.) and native harness scripts. Never ask the user for build or test commands discoverable from repository manifests. The canonical check harness (`./scripts/check.sh` delegating to `./module/scripts/check.sh`, Chapter 7) is the primary blocking gate.
+  - Execution CWD: All build, test, lint, and package commands must execute with working directory set strictly inside the codebase submodule (`./modules/` or its subdirectories). Never execute codebase toolchain commands in the orchestrator root.
+  - Autonomous Discovery: Agents must autonomously inspect `./modules/` to deduce project manifests (`Cargo.toml`, `package.json`, `go.mod`, `pyproject.toml`, etc.) and native harness scripts. Never ask the user for build or test commands discoverable from repository manifests. The canonical check harness (`./scripts/check.sh` delegating to `./modules/scripts/check.sh`, Chapter 7) is the primary blocking gate.
 * **Runtime Isolation**: Inter-tier or inter-service communication occurs strictly via network, API, or WebSocket interfaces; zero runtime filesystem traversal across subsystem boundaries (`../` traversal forbidden).
-* **Submodule Pointer Sync**: Submodule commits must be immediately recorded in the orchestrator root (`git add module && git commit`). `git submodule status` must never show `+` (stale) or `-` (uninitialized).
+* **Submodule Pointer Sync**: Submodule commits must be immediately recorded in the orchestrator root (`git add modules && git commit`). `git submodule status` must never show `+` (stale) or `-` (uninitialized).
 
 ## Chapter 2: Operational Guardrails & Circuit Breakers
 
@@ -89,7 +89,7 @@ It is strictly **language-agnostic** and **framework-agnostic**. Situational dep
   $$\text{format} \longrightarrow \text{lint} \longrightarrow \text{test} \longrightarrow \text{build} \quad (\text{exit } 0)$$
   Disabling compiler warnings or linter rules inline to bypass checks is strictly forbidden.
 * **Canonical Check Harness & Intensive Gate Contract [CRITICAL]**:
-  - **Two-Tier Delegation**: Orchestrator root MUST maintain an executable `./scripts/check.sh` delegating directly to the codebase submodule's `./module/scripts/check.sh`.
+  - **Two-Tier Delegation**: Orchestrator root MUST maintain an executable `./scripts/check.sh` delegating directly to the codebase submodule's `./modules/scripts/check.sh`.
   - **The Canonical 6-Slot Contract**: The check script enforces an intensive, non-negotiable verification gate:
     1. *Pointers*: Submodule freshness and commit alignment (`git submodule status`).
     2. *Secrets*: Leak scan for committed credentials, private keys, and un-ignored `*.env` files.

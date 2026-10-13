@@ -6,7 +6,6 @@
 !.gitignore
 !/README.md
 !/install.ts
-!/agents/**
 !/benzi/**
 !/codegraph/**
 !/context7/**
@@ -17,9 +16,11 @@
 !/openspec/**
 !/openspec-extra/**
 !/pi-extensions/**
+!/project-template/**
 !/qmd/**
 !/sem/**
 !/scripts/**
+!/skills/**
 
 # --- re-exclude junk inside allowed trees (last match wins) ---
 **/node_modules/

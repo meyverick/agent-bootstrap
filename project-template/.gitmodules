@@ -1,3 +1,3 @@
-[submodule "agent-bootstrap"]
-	path = agent-bootstrap
-	url = https://github.com/meyverick/agent-bootstrap.git
+[submodule "modules"]
+	path = modules/
+	url = https://github.com/<org>/<root_folder_name_without_workspace>.git

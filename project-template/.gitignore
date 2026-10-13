@@ -4,15 +4,17 @@
 
 # --- allowlist: the deliverables (root-anchored so negations don't leak
 #     into excluded trees; macOS core.ignorecase makes loose patterns risky) ---
-# NOTE: /agent-bootstrap is a tracked SUBMODULE (public repo) — deliberately
-#       NOT ignored; its gitlink + .gitmodules must stay committable.
+# NOTE: /modules is a tracked SUBMODULE — deliberately NOT ignored;
+#       its gitlink + .gitmodules must stay committable.
 !/.gitignore
 !.gitmodules
 !/AGENTS.md
+!/README.md
 !/openspec/**
 !/.agents/**
 !/.antigravity/**
 !/scripts/**
+!/modules/**
 
 # --- .pi/: deny contents at any depth EXCEPT the env-refed project MCP and
 #     the secret-free project LSP config ---
@@ -37,10 +39,3 @@
 .DS_Store
 *.log
 *.sqlite
-
-# --- excluded on purpose (never allowlisted above) ---
-# references/  — vendored READ-ONLY upstream corpus (~609M, embedded .git
-#                clones) — input material, re-clonable, keep out of VCS
-# .qmd/ .codegraph/ graft/ — local caches (regenerable)
-# .pi/ — local tool state; ONLY .pi/mcp.json (env-ref credentials) and .pi/lsp.json
-#        (no secrets) are allowlisted — see agent-bootstrap/README.md
