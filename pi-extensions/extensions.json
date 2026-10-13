@@ -1,0 +1,10 @@
+{
+  "packages": [
+    "npm:pi-ponytail",
+    "npm:@caveman-ai/pi",
+    "npm:pi-memory",
+    "npm:pi-web-access",
+    "npm:pi-lens",
+    "npm:pi-jev"
+  ]
+}

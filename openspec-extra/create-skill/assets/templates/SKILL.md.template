@@ -1,0 +1,106 @@
+---
+name: {{skill-name}}
+description: >
+  {{description}} Use when {{positive_condition}} (at least 3 activation examples).
+  Do NOT use when {{negative_condition}} (at least 2 exclusions).
+allowed-tools: Bash(*)
+license: MIT
+compatibility: Requires {{runtime}} >= {{version}}; runtime timeout {{timeout}}s, JSON output.
+metadata:
+  author: agentic
+  version: "1.0"
+---
+
+# {{skill-name}}
+
+## Activation Boundary
+
+**Triggers on:**
+- {{trigger_condition_1}}
+- {{trigger_condition_2}}
+
+**Does NOT trigger on:**
+- {{exclusion_1}}
+- {{exclusion_2}}
+
+## Pre-Flight Checks
+
+Before executing, verify:
+
+1. {{runtime}} is available: `which {{runtime}}`
+2. Required environment variables exist: {{env_vars}}
+3. If any check fails → emit structured error and halt
+
+## Output Contract
+
+All outputs MUST be valid JSON:
+
+```json
+{
+  "status": "success",
+  "data": {}
+}
+```
+
+Error format:
+```json
+{
+  "status": "error",
+  "error_type": "{{error_type}}",
+  "message": "{{error_message}}"
+}
+```
+
+## When to Use
+
+{{when_to_use}}
+
+## Usage
+
+{{usage_instructions}}
+
+## Contrast
+
+<!-- Teaching-optimized: old mental model vs new. When proposal carries Contrast: hint, fill this table; otherwise keep header with one example row. ex: Before: C# null (if x != null) | After: Rust Option (if let Some(x)) | Why: absence is type-level -->
+
+| Before (old) | After (new) | Why different |
+|--------------|-------------|----------------|
+| {{contrast_before}} | {{contrast_after}} | {{contrast_why}} |
+
+## Anti-examples
+
+<!-- First-class negative knowledge from report's Concrete Gotcha. When proposal carries Anti-example: hint, fill this; keep distinct from the description's `Do NOT use when` exclusions (routing) -->
+
+Do NOT:
+```{{anti_lang_before}}
+{{anti_before}}
+```
+
+Do:
+```{{anti_lang_after}}
+{{anti_after}}
+```
+
+Why: {{anti_why}}
+
+## Tiered depth
+
+<!-- Level 1 (always shown, basics) inline above; Level 2 (advanced) behind references/<topic>.md on-demand. Cap at one references/ file per skill. ex: Level 1: Option/Result → Level 2: references/lifetimes.md -->
+
+- **Level 1 (inline, basics):** {{tier1_content}}
+- **Level 2 (on-demand, advanced):** See [{{tier2_topic}}](references/{{tier2_file}}.md) — {{tier2_desc}}
+
+## References
+
+<!-- Tiered depth Level 2 + guardrails deduplication -->
+- `references/{{topic}}.md` — Level 2 advanced detail (cap one file per skill)
+- When touching `deps/Docker/HTML/auth`: also see `../../guardrails/SKILL.md` — cross-cutting anti-examples (deduplicate, don't copy guardrails patterns)
+
+## Gotchas
+
+{{gotchas}}
+
+## Author Self-Check (final step before declaring this skill complete)
+
+Run `scripts/validate-structure.ts <this-skill-dir>` and `scripts/validate-routing.ts <this-skill-dir>`.
+Both MUST report pass with outputs recorded in the creation record. Failing either = skill not complete.

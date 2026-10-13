@@ -5,9 +5,20 @@
 # --- allowlist: the deliverables ---
 !.gitignore
 !/README.md
-!/init-project.ts
-!/install-*/
-!/install-*/**
+!/install.ts
+!/agents/**
+!/benzi/**
+!/codegraph/**
+!/context7/**
+!/graft/**
+!/headroom/**
+!/jcodemunch/**
+!/jev/**
+!/openspec/**
+!/openspec-extra/**
+!/pi-extensions/**
+!/qmd/**
+!/sem/**
 !/scripts/**
 
 # --- re-exclude junk inside allowed trees (last match wins) ---

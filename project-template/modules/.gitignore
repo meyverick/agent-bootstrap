@@ -1,0 +1,35 @@
+# default-deny (AGENTS.md §12): block everything, allowlist the product.
+*
+!*/
+
+# --- allowlist: the deliverables ---
+!.gitignore
+!/README.md
+!/install.ts
+!/agents/**
+!/benzi/**
+!/codegraph/**
+!/context7/**
+!/graft/**
+!/headroom/**
+!/jcodemunch/**
+!/jev/**
+!/openspec/**
+!/openspec-extra/**
+!/pi-extensions/**
+!/qmd/**
+!/sem/**
+!/scripts/**
+
+# --- re-exclude junk inside allowed trees (last match wins) ---
+**/node_modules/
+**/__pycache__/
+**/.venv/
+**/venv/
+**/.DS_Store
+.DS_Store
+*.log
+*.sqlite
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
