@@ -1,0 +1,18 @@
+{
+  "models": {
+    "deepseek-v4.1-flash": { "provider": "opencode-go", "levels": ["low", "high", "max"] },
+    "mimo-v2.6-flash": { "provider": "opencode-go", "levels": [ "off",  "minimal", "low", "medium", "high" ] },
+    "muse-spark-1.3-contributor": { "provider": "opencode-go", "levels": [ "minimal", "low", "medium", "high", "xhigh" ] },
+    "step-5-preview-free": { "provider": "opencode-go", "levels": [ "low", "medium", "high" ] },
+    "longcat-2.5-preview-free": { "provider": "opencode-go", "levels": [ "off",  "minimal", "low", "medium", "high" ] },
+
+    "big-pickle": { "provider": "opencode", "levels": [ "off",  "minimal", "low", "medium", "high" ] },
+    "exo-free": { "provider": "opencode", "levels": [ "high" ] },
+    "ling-3.1-flash-free": { "provider": "opencode", "levels": [ "off",  "minimal", "low", "medium", "high" ] },
+    "nemotron-3-ultra-free": { "provider": "opencode", "levels": [ "off",  "minimal", "low", "medium", "high" ] },
+    "nemotron-3.5-lightning-free": { "provider": "opencode", "levels": [ "off",  "minimal", "low", "medium", "high" ] },
+    "space-bunny-free": { "provider": "opencode", "levels": [ "low", "medium", "high", "xhigh", "max" ] },
+
+    "mimo-v2.6-pro": { "provider": "xiaomi-token-plan-ams", "levels": [ "off",  "minimal", "low", "medium", "high" ] }
+  }
+}

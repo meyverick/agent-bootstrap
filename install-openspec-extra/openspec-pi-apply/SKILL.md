@@ -47,17 +47,34 @@ Delegate task execution for an active OpenSpec change to a headless `pi` worker 
    ```
    Ensure `isPlanningComplete: true`. If planning is incomplete, advise completing artifacts with `/openspec-continue-change` first.
 
-### Step 2: Spawn Pi Worker Engine
+### Step 2: Model Selection & Worker Spawning
 
-Run the bridge runner from the workspace root:
-```bash
-bun run .agents/skills/openspec-pi-apply/scripts/pi-rpc-apply.ts --change "<name>"
-```
+1. **Discover Available Models**:
+   Inspect registered models and their supported thinking levels (emits minified JSON `{"<model>":["level",...]}`):
+   ```bash
+   bun run .agents/skills/openspec-pi-apply/scripts/pi-rpc-apply.ts --model
+   ```
+
+2. **Select Model & Thinking Level**:
+   Accepts either bare model names (e.g. `deepseek-v4.1-flash`) or qualified names (e.g. `opencode-go/deepseek-v4.1-flash`), automatically resolving to canonical `<provider>/<model>` when spawning `pi`:
+   - **Routine / Light** (single file, docs, minor fixes):
+     `--model mimo-v2.6-flash --thinking medium` (or qualified `xiaomi-token-plan-ams/mimo-v2.6-flash`)
+   - **Moderate** (standard 2–4 file features, test suites):
+     `--model deepseek-v4.1-flash --thinking high` (or qualified `opencode-go/deepseek-v4.1-flash`)
+   - **Complex / Architectural** (cross-cutting systems, parser/expression logic, Rust crates):
+     `--model mimo-v2.6-pro --thinking high` (or qualified `xiaomi-token-plan-ams/mimo-v2.6-pro`)
+
+3. **Spawn Runner**:
+   Execute the bridge runner from the workspace root:
+   ```bash
+   bun run .agents/skills/openspec-pi-apply/scripts/pi-rpc-apply.ts --change "<name>" --model "<model>" --thinking "<level>"
+   ```
 
 *(For low-level RPC framing specifications, see [references/rpc-protocol.md](references/rpc-protocol.md).)*
 
 The runner:
-- Resolves workspace root and spawns `pi -a --session-id "openspec-<name>" --mode rpc`
+- Validates `--model` (bare or qualified) and `--thinking` against `.agents/skills/openspec-pi-apply/scripts/models.json`
+- Resolves bare models to canonical `<provider>/<model>` and spawns `pi -a --session-id "openspec-<name>" --mode rpc` with forwarded `--model` and `--thinking` flags
 - Enforces change-scoped session isolation, preventing contamination from previous interactive chats or other changes
 - Transmits `/skill:openspec-apply-change <name>` over stdin
 - Filters raw token noise, emitting clean progress logs (`⚙ [pi:tool] Invoking: ...`)

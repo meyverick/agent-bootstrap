@@ -18,8 +18,92 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
+
+// --- Allowed Models Catalog & Discovery ---
+
+export interface ModelDefinition {
+  provider: string;
+  levels: string[];
+}
+
+export interface ModelsCatalog {
+  models: Record<string, ModelDefinition>;
+}
+
+export function loadAllowedModels(dir?: string): Record<string, ModelDefinition> {
+  const base = dir ?? dirname(import.meta.path ?? __filename);
+  const modelsPath = join(base, 'models.json');
+  if (!existsSync(modelsPath)) {
+    throw new Error(`models.json not found at ${modelsPath}`);
+  }
+  const content = readFileSync(modelsPath, 'utf8');
+  const parsed = JSON.parse(content) as ModelsCatalog;
+  return parsed.models ?? {};
+}
+
+export function printAvailableModels(models: Record<string, ModelDefinition>): void {
+  const flat: Record<string, string[]> = {};
+  for (const [model, def] of Object.entries(models)) {
+    flat[model] = def.levels;
+  }
+  console.log(JSON.stringify(flat));
+}
+
+export type ModelCheckResult =
+  | { valid: true; canonicalModel?: string }
+  | { valid: false; error: string };
+
+export function checkModelAndThinking(
+  model?: string,
+  thinking?: string,
+  models: Record<string, ModelDefinition> = loadAllowedModels()
+): ModelCheckResult {
+  if (model) {
+    let resolvedDefinition: ModelDefinition | undefined;
+    let canonicalModel: string | undefined;
+
+    if (models[model]) {
+      resolvedDefinition = models[model];
+      canonicalModel = `${resolvedDefinition.provider}/${model}`;
+    } else if (model.includes('/')) {
+      const slashIndex = model.indexOf('/');
+      const providerPart = model.slice(0, slashIndex);
+      const modelPart = model.slice(slashIndex + 1);
+      if (models[modelPart] && models[modelPart].provider === providerPart) {
+        resolvedDefinition = models[modelPart];
+        canonicalModel = model;
+      }
+    }
+
+    if (!resolvedDefinition || !canonicalModel) {
+      return {
+        valid: false,
+        error: `Model '${model}' is not in allowed models.json.`,
+      };
+    }
+
+    if (thinking) {
+      const validThinking = resolvedDefinition.levels;
+      if (!validThinking.includes(thinking)) {
+        return {
+          valid: false,
+          error: `Thinking level '${thinking}' is not supported for model '${model}'. Allowed: ${validThinking.join(', ')}`,
+        };
+      }
+    }
+
+    return { valid: true, canonicalModel };
+  } else if (thinking) {
+    return {
+      valid: false,
+      error: `--thinking cannot be specified without --model.`,
+    };
+  }
+
+  return { valid: true };
+}
 
 // --- Type Definitions for Pi RPC Events ---
 
@@ -74,6 +158,8 @@ interface CliOptions {
   timeoutMs: number;
   explicitRoot?: string;
   verbose: boolean;
+  model?: string;
+  thinking?: string;
 }
 
 function printHelp(): void {
@@ -87,11 +173,13 @@ Options:
   --timeout <ms>         Turn timeout in milliseconds (default: 300000ms / 5 min)
   --root <path>          Explicit workspace root directory
   --verbose              Print detailed event diagnostics to stderr
+  --model [<name>]       Model to use (<provider>/<model-name>). Without argument: list available models
+  --thinking <level>     Thinking/reasoning level for model (e.g. low, medium, high)
   -h, --help             Show this help message
 `);
 }
 
-function parseArgs(args: string[]): CliOptions {
+export function parseArgs(args: string[]): CliOptions {
   const options: CliOptions = {
     continueSession: false,
     timeoutMs: 300_000,
@@ -103,6 +191,17 @@ function parseArgs(args: string[]): CliOptions {
     if (arg === '-h' || arg === '--help') {
       printHelp();
       process.exit(0);
+    } else if (arg === '--model' || arg === '--models') {
+      const next = args[i + 1];
+      if (!next || next.startsWith('-')) {
+        // Discovery mode: --model invoked without an argument
+        const models = loadAllowedModels();
+        printAvailableModels(models);
+        process.exit(0);
+      }
+      options.model = args[++i];
+    } else if (arg === '--thinking') {
+      options.thinking = args[++i];
     } else if (arg === '--change') {
       options.changeName = args[++i];
     } else if (arg === '--reply') {
@@ -118,6 +217,19 @@ function parseArgs(args: string[]): CliOptions {
     } else if (!arg.startsWith('-') && !options.changeName) {
       options.changeName = arg;
     }
+  }
+
+  const check = checkModelAndThinking(options.model, options.thinking);
+  if (!check.valid) {
+    console.error(`[pi-runner] Error: ${check.error}`);
+    if (options.model) {
+      printAvailableModels(loadAllowedModels());
+    }
+    process.exit(1);
+  }
+
+  if (check.canonicalModel) {
+    options.model = check.canonicalModel;
   }
 
   return options;
@@ -195,12 +307,23 @@ export async function main() {
     console.warn(`[pi-runner] Warning: No change name provided, falling back to continue (-c)`);
     spawnArgs.push('-c');
   }
+
+  if (options.model) {
+    spawnArgs.push('--model', options.model);
+    console.log(`[pi-runner] Using model: ${options.model}`);
+  }
+  if (options.thinking) {
+    spawnArgs.push('--thinking', options.thinking);
+    console.log(`[pi-runner] Using thinking level: ${options.thinking}`);
+  }
+
   spawnArgs.push('--mode', 'rpc');
 
   console.log(`[pi-runner] Spawning: pi ${spawnArgs.join(' ')} (cwd: ${workspaceRoot})`);
   const piProcess: ChildProcess = spawn('pi', spawnArgs, {
     cwd: workspaceRoot,
     stdio: ['pipe', 'pipe', 'pipe'],
+    shell: process.platform === 'win32',
     env: { ...process.env },
   });
 
