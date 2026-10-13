@@ -35,15 +35,9 @@ Unknown flags are ignored — the script is also invoked by other tooling.
 ```
 agent-bootstrap/            <- this repo (submodule of the private orchestrator)
 ├── install.ts               <- THE bootstrap (self-contained: all payloads embedded)
-├── install-lsp/               <- RETIRED by replace-pi-lsp-with-pi-lens (bin ensure
-│                               stays in install.ts; pi-lens owns LSP config)
-├── install-<app>/           <- per-app reference installers + templates + skills
-├── install-agents/          <- base source (foundation, deployed by install.ts):
-│   ├── AGENTS.md            <- the universal rule book, currently INERT —
-│   │                            install.ts never reads it; balise region owned
-│   │                            by the upsert, not this file
-│   ├── skill-check/         <- always-shipped skill (direct refs in AGENTS.md)
-│   ├── skill-guardrails/    <- always-shipped skill (direct refs in AGENTS.md)
+├── <app>/                   <- per-app reference installers + templates (e.g. benzi/install.ts)
+├── agents/                  <- base source (foundation, deployed by install.ts):
+│   ├── AGENTS.md            <- the universal rule book
 │   └── scripts/
 │       └── check-deps.ts    <- dev utility: dependency freshness report
 │                                (bun scripts/check-deps.ts [dir] [--json]) —
@@ -54,7 +48,7 @@ agent-bootstrap/            <- this repo (submodule of the private orchestrator)
 ```
 
 Path convention: every path in the OpenSpec specs and docs is **relative to this
-repository root** (e.g. `./install-headroom/mcp.json` = `install-headroom/mcp.json`
+repository root** (e.g. `./headroom/mcp.json` = `headroom/mcp.json`
 here).
 
 ## What it does (in order)
@@ -66,9 +60,9 @@ here).
 | 1c. Caveman runtime | `@caveman-ai/cli` via npm (install when absent, registry update check) then one non-interactive `caveman setup --install` per run, which verifies signatures + per-artifact checksums and syncs the tool's own binary directory (4 required + 2 optional binaries). User-scope, **no skills, no agent wiring, no `~/` pi writes** — the pi surface stays the workspace package. Runtime-install failure is a warning, never a failed run. Manual recovery: `npm i -g @caveman-ai/cli && caveman setup --install` | every run (installer short-circuits on a verified local install) |
 | 1b. openspec profile | `~/.config/openspec/config.json` — canonical 3 keys merged, everything else preserved, **zero secrets** | every run + converges |
 | 2. Project MCP + lens | `.pi/mcp.json` + `.agents/mcp_config.json` (10 servers, **env-ref credentials** where applicable — `benzi` carries none: auth lives in its own `~/.benzi/config.json`; `pi-lens` carries none: stdio transport) AND `.pi-lens.json` (report-only `format`/`autofix` off, `lsp.serverOverrides` rust+json, 3 custom `servers` buf/protols/tailwindcss) | first run + converges |
-| 2b. Project Pi packages | `.pi/settings.json` — `packages[]` from `install-pi-extensions/extensions.json`, merged **workspace-only** (template-wins for declared packages so version bumps propagate; foreign packages + sibling keys kept; `--prune` resets `packages` to ours. No `pi` spawn, never `~/.pi`) + hint: grant project trust on the first pi session to load them | every run + converges. The caveman extension's own runtime is provisioned by layer 1c — the package alone loads but stays in direct mode |
-| 3. Project rules | `AGENTS.md` — foundation base + our 10 balise activation blocks appended on top (base = `install-agents/AGENTS.md`, created once then preserved; `--prune` reinstalls it; balise region re-appended after — byte-stable) | every run (blocks rewrite; base only on create / `--prune`) |
-| 4. Project skills | `.agents/skills/` — 27 deployed skills (9 tool + 18 ours: kit 5, openspec-extra 10, extra-skills 3; 145 files incl. 27 `.agent-bootstrap` ownership markers, no evals/transcripts) = 27 disjoint dirs. **Whole-tree convergence**: any drift (changed file, missing/extra file, missing marker) replaces the entire skill dir; a marker-bearing dir absent from the payload is deleted as stale; unmarked (foreign) dirs are never read or touched | every run + converges |
+| 2b. Project Pi packages | `.pi/settings.json` — `packages[]` from `pi-extensions/extensions.json`, merged **workspace-only** (template-wins for declared packages so version bumps propagate; foreign packages + sibling keys kept; `--prune` resets `packages` to ours. No `pi` spawn, never `~/.pi`) + hint: grant project trust on the first pi session to load them | every run + converges. The caveman extension's own runtime is provisioned by layer 1c — the package alone loads but stays in direct mode |
+| 3. Project rules | `AGENTS.md` — foundation base written directly (base = `agents/AGENTS.md`, created once then preserved; `--prune` reinstalls it byte-identical) | base on create / `--prune` |
+| 4. Project skills | `.agents/skills/` — deployed skills (ours: kit 5, openspec-extra 10, extra-skills 3; 97 files incl. 18 `.agent-bootstrap` ownership markers, no evals/transcripts). **Whole-tree convergence**: any drift (changed file, missing/extra file, missing marker) replaces the entire skill dir; a marker-bearing dir absent from the payload is deleted as stale; unmarked (foreign) dirs are never read or touched | every run + converges |
 | 5. Repo inits | `graft build`, `qmd init .` + **qmd collections seeded** (6 from `default-db.json` — wikis/llms/openspec/references/directives/skills, skip-by-name) + `qmd update`, `codegraph init` — marker-gated; **`openspec init --tools agents --force` — EVERY run (no marker, user's canonical command)** | gated ones only when `graft/` / `.qmd` / `.codegraph` is absent; openspec always; **re-run `qmd update` after skill-changing runs to refresh the skills collection** |
 
 Machine layer covers: `qmd` · `sem` · `graft` · `codegraph` · `openspec` (npm, per-app update
@@ -84,15 +78,11 @@ never spawns it and never writes credentials into the project.
 
 ## AGENTS.md ownership
 
-- **Base** = `install-agents/AGENTS.md` (this repo's rule book): the foundation layer
+- **Base** = `agents/AGENTS.md` (this repo's rule book): the foundation layer
   writes it when `AGENTS.md` is absent and reinstalls it on `--prune`. A default run
-  leaves the book region byte-for-byte alone.
-- **Balise region** = ours: the 9 `<!-- <app>:start -->…<!-- <app>:end -->`
-  blocks are re-appended after the base each run — byte-stable convergence.
-- **Human edits** belong inside a balise block, or upstream to
-  this repository's `install-agents/AGENTS.md` (the base's source of truth). `--prune`
-  overwrites everything outside our blocks, so keep prose out of a project copy if you
-  run it.
+  leaves the rule book byte-for-byte alone.
+- **Human edits** belong upstream in this repository's `agents/AGENTS.md` (the base's source of truth). `--prune`
+  reinstalls the clean base rulebook.
 
 ## Global openspec profile
 
@@ -110,7 +100,7 @@ This is the non-interactive equivalent of running `openspec config profile` to
 enable the expanded ("extra") skill set on a fresh machine; `init` then
 materializes the skill files per this config. **No skill, no AGENTS.md block, and
 no MCP config are authored for openspec** — upstream's `delivery: skills` owns
-the skill layer, and openspec has no server. The ten balise blocks stay ten.
+the skill layer, and openspec has no server.
 
 ## Required environment variables
 

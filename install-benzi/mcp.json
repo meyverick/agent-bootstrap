@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "benzi": {
-      "command": "benzi-mcp",
-      "args": []
-    }
-  }
-}

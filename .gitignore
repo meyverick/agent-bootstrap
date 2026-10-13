@@ -8,6 +8,7 @@
 !/init-project.ts
 !/install-*/
 !/install-*/**
+!/scripts/**
 
 # --- re-exclude junk inside allowed trees (last match wins) ---
 **/node_modules/
