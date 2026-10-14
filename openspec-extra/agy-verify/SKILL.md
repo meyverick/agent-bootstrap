@@ -4,7 +4,7 @@ description: >
   Delegate OpenSpec change verification review to a headless agy worker agent via print mode.
   Use when the user wants to verify an implemented change using agy as a reviewer engine,
   saying "agy verify", "verify with agy", or "opsx agy verify".
-  Do NOT use when implementing changes (use openspec-pi-apply),
+  Do NOT use when implementing changes (use pi-worker --mode apply),
   or when verifying directly without agy (use openspec-verify-change).
 allowed-tools: Bash(agy:*) Bash(openspec:*) Read
 license: MIT

@@ -4,7 +4,7 @@ description: >
   Delegate OpenSpec change plan revision to a headless agy worker agent via print mode.
   Use when the user wants to revise a change's planning artifacts using agy,
   saying "agy update", "update with agy", or "opsx agy update".
-  Do NOT use when implementing changes (use openspec-pi-apply),
+  Do NOT use when implementing changes (use pi-worker --mode apply),
   verifying implementations (use agy-verify), or revising directly without agy
   (use openspec-update-change). Never edits code.
 allowed-tools: Bash(agy:*) Bash(openspec:*) Read

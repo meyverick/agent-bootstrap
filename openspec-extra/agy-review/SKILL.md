@@ -1,7 +1,7 @@
 ---
 name: agy-review
 description: >
-  Delegate OpenSpec change plan review to a headless agy worker agent via print mode. Use when the user wants a fresh-eyes review of a change's planning artifacts using agy, saying "agy review", "review with agy", "fresh-eyes review", or "opsx agy review". Do NOT use when implementing changes (use openspec-pi-apply), verifying implementations (use agy-verify), updating plans (use agy-update), or reviewing directly without agy (use openspec-review). Never edits code.
+  Delegate OpenSpec change plan review to a headless agy worker agent via print mode. Use when the user wants a fresh-eyes review of a change's planning artifacts using agy, saying "agy review", "review with agy", "fresh-eyes review", or "opsx agy review". Do NOT use when implementing changes (use pi-worker --mode apply), verifying implementations (use agy-verify), updating plans (use agy-update), or reviewing directly without agy (use openspec-review). Never edits code.
 allowed-tools: Bash(agy:*) Bash(openspec:*) Read
 license: MIT
 compatibility: Requires agy CLI, openspec CLI.

@@ -5,44 +5,46 @@ description: >
   Use when the user wants to apply an OpenSpec change using pi as a worker engine,
   saying "pi apply", "opsx pi apply", or "apply change with pi".
   Do NOT use when applying changes directly without pi (use openspec-apply-change),
+  when exploring or investigating without implementing (use pi-worker --mode explore or openspec-explore),
   or when proposing/planning changes (use openspec-propose).
 allowed-tools: Bash(bun:*) Bash(openspec:*) Read Grep
 license: MIT
 compatibility: Requires pi CLI, bun, and openspec CLI.
 metadata:
   author: agentic
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 # OpenSpec Pi Apply Workflow
 
-Delegate task execution for an active OpenSpec change to a headless `pi` worker engine communicating over JSON-RPC. The host agent acts as architectural supervisor: assessing change complexity, querying the live model registry to select a valid worker configuration, triaging worker questions against specification artifacts, and enforcing verification gates.
+Delegate task execution for an active OpenSpec change to a headless `pi` worker engine communicating over JSON-RPC. The host agent acts as architectural supervisor: assessing change complexity, querying the live model registry to select a valid worker configuration, autonomously triaging worker questions against specification artifacts via same-session `--request` follow-ups, and enforcing completion verification gates.
 
-> **Path Resolution**: All `scripts/` and `references/` paths below are relative to this skill's directory (e.g., `.agents/skills/openspec-pi-apply/`). Resolve them against the skill's base directory when invoking commands from the workspace root.
+> **Path Resolution**: All `scripts/` and `references/` paths below are relative to this skill's directory (e.g., `.agents/skills/pi-worker/`). Resolve them against the skill's base directory when invoking commands from the workspace root.
 
 ## Contrast Matrix
 
-| Dimension | Direct Supervisor (`openspec-apply-change`) | Headless Pi Worker (`openspec-pi-apply`) | Why Different |
+| Dimension | Direct Apply (`openspec-apply-change`) | Headless Pi Apply (pi-worker `--mode apply`) | Headless Pi Explore (pi-worker `--mode explore`) |
 | :--- | :--- | :--- | :--- |
-| **Execution** | Supervisor edits project files directly in turn context | Child process worker (`pi -a --session-id openspec-<name> --mode rpc`) executes edits | Prevents supervisor context bloat & high turn latency |
-| **Supervision** | Self-directed implementation | Supervisor selects worker tier, monitors tool events & validates completion gates | Decouples code authoring from architectural oversight |
-| **Clarifications** | Halts and asks human immediately | Supervisor triages autonomously against change artifacts | Eliminates unnecessary user interruptions for specified details |
+| **Execution** | Host agent edits project files directly in main turn context | Child process worker (`pi -a --session-id openspec-apply-<slug> --mode rpc`) executes code edits | Child process worker investigates codebase in strict read-only mode |
+| **Supervision** | Self-directed implementation | Supervisor selects worker tier, monitors tool events & validates `remaining === 0` gate | Supervisor routes inquiry complexity, refuses file writes & presents report |
+| **Clarifications** | Halts and asks human immediately | Supervisor triages autonomously against `specs/`, `design.md`, and `proposal.md` via same-session `--request` | Supervisor triages autonomously against specs, `config.yaml`, and codebase via same-session `--request` |
 
 ## Gotchas & Anti-Examples (What NOT to do)
 
-- **Do NOT edit project files directly** in this workflow. Task implementation is delegated to the worker process via `scripts/pi-rpc-apply.ts`.
-- **Do NOT select a model before inspecting the change tasks**. Always inspect `openspec instructions apply --change "<name>" --json` in Step 1.3 before choosing `--model` and `--thinking`.
-- **Do NOT assume or memorize model names or thinking levels**. `scripts/models.json` is a dynamic registry; always run `--model` discovery in Step 2.1 and select strictly from its live output.
-- **Do NOT pipe raw `pi` stdout directly** into conversational logs. Always use `scripts/pi-rpc-apply.ts` to filter high-frequency token deltas and prevent buffer stalls.
-- **Do NOT use unescaped double quotes or backticks in `--reply`**. Wrap `--reply` payloads in single quotes (or escape `$` and `` ` ``) so bash does not evaluate code identifiers as subshells.
-- **Do NOT guess unstated requirements** when the worker pauses for clarification. If an answer cannot be grounded in `specs/`, `design.md`, or `AGENTS.md`, escalate to the user.
+- **Do NOT edit project files directly** in this workflow. Task implementation is delegated to the worker process via `scripts/pi-rpc.ts`.
+- **Do NOT select a model before inspecting the change tasks**. Always inspect `openspec instructions apply --change "<name>" --json` in Step 1.3 before choosing `--model` and `--level`.
+- **Do NOT assume or memorize model names or thinking levels**. `references/models.json` is a dynamic registry; always run `--model` discovery in Step 2.1 and select strictly from its live output.
+- **Do NOT pipe raw `pi` stdout directly** into conversational logs. Always use `scripts/pi-rpc.ts` to filter high-frequency token deltas and prevent buffer stalls.
+- **Do NOT use unescaped double quotes or backticks in `--request`**. Wrap `--request` payloads in single quotes (or escape `\$` and `` ` ``) so bash does not evaluate code identifiers as subshells.
+- **Do NOT skip `--session "<slug>"` or reuse one slug across concurrent delegations**. The worker attaches to `openspec-apply-<slug>`; resuming a paused worker is the same session with a new `--request`.
+- **Do NOT guess unstated requirements** when the worker pauses for clarification. If an answer cannot be grounded in `specs/`, `design.md`, `proposal.md`, or `AGENTS.md`, escalate to the user.
 - **Do NOT mark the change complete** based solely on worker claims. Verify that `openspec instructions apply --change "<name>" --json` confirms `remaining: 0`.
 
 ## Workflow Checklist
 
 - [ ] **Step 1**: Verify `isPlanningComplete: true` and evaluate task scope (`remaining`, files, cognitive depth).
-- [ ] **Step 2**: Query live `--model` registry, snap `--thinking` to the chosen model's allowed array, and spawn runner.
-- [ ] **Step 3 & 4**: Triage settlement status (`COMPLETED`, `PAUSED_FOR_CLARIFICATION`, or `FAILED`) and iterate until done.
+- [ ] **Step 2**: Query live `--model` registry, snap `--level` to the chosen model's allowed array, and spawn `scripts/pi-rpc.ts`.
+- [ ] **Step 3 & 4**: Triage settlement status (`COMPLETED`, `PAUSED_FOR_CLARIFICATION`, or `FAILED`) and iterate via same-session `--request` follow-ups until done.
 - [ ] **Step 5**: Verify `progress.remaining === 0` and pass `openspec validate --change "<name>"`.
 
 ---
@@ -66,7 +68,10 @@ Delegate task execution for an active OpenSpec change to a headless `pi` worker 
 ### Step 2: Live Registry Discovery & Worker Spawning
 
 1. **Query the Live Model Registry (Mandatory)**:
-   Inspect the currently registered models and their exact supported thinking levels (emits minified JSON `{"<model>":["level",...]}` from `scripts/models.json`): `bun run .agents/skills/openspec-pi-apply/scripts/pi-rpc-apply.ts --model`
+   Inspect the currently registered models and their exact supported thinking levels (emits minified JSON `{"<model>":["level",...]}` from `references/models.json`):
+   ```bash
+   bun run .agents/skills/pi-worker/scripts/pi-rpc.ts --model
+   ```
    Treat this command's output as the **Single Source of Truth** for both model availability and valid thinking levels.
 
 2. **Map Change Complexity to Live Models**:
@@ -79,21 +84,24 @@ Delegate task execution for an active OpenSpec change to a headless `pi` worker 
    | **Tier 2: Moderate / Feature** | 2–5 files; standard feature wiring, API endpoints, state management, integration test suites | Select a strong code/reasoning model (capable `*-flash` with `high`/`max` ceiling, contributor, or `*-ultra*`) | `high` |
    | **Tier 3: Complex / Architectural** | 5+ files or cross-cutting systems; parsers, expression engines, concurrency, DB migrations, Rust crates | Select a flagship model (`*-pro*`, `*-ultra*`, or a reasoning model supporting `xhigh`/`max`) | `high`, `xhigh`, or `max` |
 
-3. **Snap `--thinking` to the Model's Allowed Array**:
+3. **Snap `--level` to the Model's Allowed Array**:
    Verify that your target thinking level exists in the chosen model's array from Step 2.1 (`{"<selected-model>": [...]}`):
    - **Exact Match**: If the target level is present in the model's array, use it directly.
    - **Nearest Valid Level (Snapping)**: If a model omits an intermediate level (e.g., supporting `["low", "high", "max"]` without `"medium"`, or only supporting `["high"]`), snap to the nearest valid level in its array—rounding **up** when task coupling is non-trivial and **down** for mechanical edits. Never pass a thinking level omitted from that model's Step 2.1 array.
 
-4. **Spawn Runner**:
-   Execute the bridge runner with the validated `--model` (bare or `<provider>/<model>`) and `--thinking` level: `bun run .agents/skills/openspec-pi-apply/scripts/pi-rpc-apply.ts --change "<name>" --model "<model>" --thinking "<level>"`
-   - Validates `--model` and `--thinking` against `scripts/models.json` and spawns `pi -a --session-id "openspec-<name>" --mode rpc`
-   - Enforces change-scoped session isolation and transmits `/skill:openspec-apply-change <name>` over stdin
-   - Filters raw token noise, emitting clean tool progress logs (`⚙ [pi:tool] Invoking: ...`) until `agent_settled`
+4. **Spawn Apply Runner**:
+   Derive a unique kebab-case `<slug>` per delegation (change name plus a short suffix so concurrent delegations never collide). Execute the bridge runner with the validated `--model` (bare or `<provider>/<model>`) and `--level`:
+   ```bash
+   bun run .agents/skills/pi-worker/scripts/pi-rpc.ts --mode apply --session "<slug>" --model "<model>" --level "<level>" --request "<name>"
+   ```
+   - Validates `--model` and `--level` against `references/models.json` and spawns `pi -a --session-id "openspec-apply-<slug>" --mode rpc`
+   - Enforces change-scoped session isolation and transmits `/skill:openspec-apply-change <name>` over stdin with a supervisor mandate to check off `- [x]` in `tasks.md`
+   - Filters raw token noise, emitting clean tool progress logs (`⚙ [pi:tool] Invoking: ...`), capturing the worker's turn report between `[APPLY_REPORT_START]` and `[APPLY_REPORT_END]`, and verifying `openspec instructions apply --change "<name>" --json` upon `agent_settled`
    - *Progressive Disclosure*: Do **not** load [references/rpc-protocol.md](references/rpc-protocol.md) during normal execution; read it **only** if you need to diagnose malformed JSON-RPC framing or runner stream errors.
 
 ### Step 3: Triage Worker Settlement State
 
-Evaluate the runner's exit status:
+Evaluate the runner's exit status and captured worker output:
 
 #### Case A: `[STATUS] COMPLETED`
 
@@ -101,15 +109,18 @@ All tasks in `tasks.md` are marked complete (`remaining: 0`). Proceed directly t
 
 #### Case B: `[STATUS] PAUSED_FOR_CLARIFICATION`
 
-Worker paused with remaining tasks or posted a question before finishing.
+Worker paused with remaining tasks (`remaining > 0`) or posted a blocking question before finishing.
 
-1. Read the worker's question from the runner log.
-2. Cross-reference the question against `openspec/changes/<name>/specs/**/*.md`, `openspec/changes/<name>/design.md`, `openspec/changes/<name>/proposal.md`, and `AGENTS.md`.
-3. **Autonomous Resolution**:
-   If the answer is documented in specifications or project conventions, formulate a concise clarification grounded in the artifacts and resume worker execution (using single quotes around `--reply` to prevent shell expansion): `bun run .agents/skills/openspec-pi-apply/scripts/pi-rpc-apply.ts --change "<name>" --reply '<clarification-answer>'`
-   Return to **Step 3** to inspect the next settlement state.
-4. **Human Escalation**:
-   If the question involves genuine domain ambiguity, unstated product preference, or missing credentials not covered by specs, ask the user directly. Once answered, resume with `--reply '<user-answer>'` and return to **Step 3**.
+1. Read the worker's message between `[APPLY_REPORT_START]` and `[APPLY_REPORT_END]` and the pending task list from the runner log.
+2. Cross-reference the question or remaining tasks against `openspec/changes/<name>/specs/**/*.md`, `openspec/changes/<name>/design.md`, `openspec/changes/<name>/proposal.md`, `AGENTS.md`, and the codebase using `Read` and `Grep`.
+3. **Autonomous Resolution (Default)**:
+   - If the answer is documented in specifications or project conventions (or if the worker completed the code edits but forgot to mark `- [x]` in `tasks.md`), formulate a concise instruction grounded in the artifacts and resume worker execution (single-quoting the `--request` payload):
+     ```bash
+     bun run .agents/skills/pi-worker/scripts/pi-rpc.ts --mode apply --session "<slug>" --request '<clarification-answer>'
+     ```
+   - Return to **Step 3** to inspect the next settlement state.
+4. **Human Escalation (Last Resort)**:
+   - Only if the question involves genuine domain ambiguity, unstated product preference, or missing credentials not covered by specs or codebase context, ask the user directly, then resume with `--mode apply --session "<slug>" --request '<user-answer>'` and return to **Step 3**.
 
 #### Case C: `[STATUS] FAILED`
 
@@ -131,4 +142,4 @@ Repeat Step 3 until `[STATUS] COMPLETED` is reached or human intervention is req
 2. **Validate Change Integrity**:
    Run OpenSpec validation and relevant project verification suites (linters, typecheck, or tests): `openspec validate --change "<name>"`
 3. **Present Implementation Summary**:
-   Report the change name, model/thinking configuration used, completed task summary, and verification status, then prompt: *"All tasks complete! You can archive this change with `/openspec-archive-change <name>`."*
+   Report the change name, `--model` and `--level` configuration used, completed task summary, and verification status, then prompt: *"All tasks complete! You can archive this change with `/openspec-archive-change <name>`."*

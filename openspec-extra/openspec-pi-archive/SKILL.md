@@ -5,7 +5,7 @@ description: >
   Use when the user wants to archive an OpenSpec change using pi as a worker engine,
   saying "pi archive", "opsx pi archive", or "archive change with pi".
   Do NOT use when archiving changes directly without pi (use openspec-archive-change),
-  or when implementing tasks (use openspec-pi-apply or openspec-apply-change).
+  or when implementing tasks (use pi-worker --mode apply or openspec-apply-change).
 allowed-tools: Bash(bun:*) Bash(openspec:*) Read Grep
 license: MIT
 compatibility: Requires pi CLI, bun, and openspec CLI.
@@ -42,7 +42,7 @@ Delegate delta specification merging and change archiving for a completed OpenSp
    ```bash
    openspec list --json
    ```
-   Confirm `completedTasks === totalTasks`. If tasks are unfinished, advise completing them with `/openspec-pi-apply <name>` first.
+   Confirm `completedTasks === totalTasks`. If tasks are unfinished, advise completing them with `/pi-worker` (`--mode apply`) first.
 2. Inspect delta spec presence and readiness:
    ```bash
    openspec status --change "<name>" --json
