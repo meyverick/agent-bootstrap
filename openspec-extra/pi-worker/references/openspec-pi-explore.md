@@ -18,7 +18,7 @@ metadata:
 
 # OpenSpec Pi Explore Workflow
 
-Delegate read-only OpenSpec exploration and architectural investigation for a user `<request>` to a headless `pi` worker engine communicating over JSON-RPC. The host agent acts as architectural supervisor: inspecting workspace context, evaluating inquiry complexity, querying the live model registry to select a valid worker configuration, autonomously triaging worker questions via same-session `--request` follow-ups, enforcing strict read-only guardrails, and presenting the worker's synthesized exploration report.
+Delegate read-only OpenSpec exploration and architectural investigation for a user `<prompt>` to a headless `pi` worker engine communicating over JSON-RPC. The host agent acts as architectural supervisor: inspecting workspace context, evaluating inquiry complexity, querying the live model registry to select a valid worker configuration, autonomously triaging worker questions via same-session `--mode prompt` follow-ups, enforcing strict read-only guardrails, and presenting the worker's synthesized exploration report.
 
 > **Path Resolution**: All `scripts/` and `references/` paths below are relative to this skill's directory (e.g., `.agents/skills/pi-worker/`). Resolve them against the skill's base directory when invoking commands from the workspace root.
 
@@ -26,9 +26,9 @@ Delegate read-only OpenSpec exploration and architectural investigation for a us
 
 | Dimension | Direct Explore (`openspec-explore`) | Headless Pi Explore (pi-worker `--mode explore`) | Headless Pi Apply (pi-worker `--mode apply`) |
 | :--- | :--- | :--- | :--- |
-| **Execution** | Host agent searches codebase and explores in main turn context | Child process worker (`pi -a --session-id openspec-explore-<slug> --mode rpc`) investigates and returns report | Child process worker executes code edits from `tasks.md` |
+| **Execution** | Host agent searches codebase and explores in main turn context | Child process worker (`pi -a --session-id <id> --mode rpc`) investigates and returns report | Child process worker executes code edits from `tasks.md` |
 | **Mutation Policy** | Read-only by default; may capture OpenSpec artifacts if user confirms | **Strictly read-only**: neither worker nor supervisor writes code or OpenSpec artifacts; returns report/reply only | Mutates project files to complete implementation tasks |
-| **Clarifications** | Asks human directly in chat | Supervisor triages autonomously against specs, `config.yaml`, and codebase via same-session `--request` | Supervisor triages against change artifacts via same-session `--request` |
+| **Clarifications** | Asks human directly in chat | Supervisor triages autonomously against specs, `config.yaml`, and codebase via same-session `--mode prompt` | Supervisor triages against change artifacts via same-session `--mode prompt` |
 
 ## Gotchas & Anti-Examples (What NOT to do)
 
@@ -36,14 +36,15 @@ Delegate read-only OpenSpec exploration and architectural investigation for a us
 - **Do NOT select a model before assessing the request and OpenSpec context**. Always inspect `openspec list --json` and `openspec list --specs --json` in Step 1 before choosing `--model` and `--level`.
 - **Do NOT assume or memorize model names or thinking levels**. `references/models.json` is a dynamic registry; always run `--model` discovery in Step 2.1 and select strictly from its live output.
 - **Do NOT pipe raw `pi` stdout directly** into conversational logs. Always use `scripts/pi-rpc.ts` to filter high-frequency token deltas and emit only clean tool events and the settled exploration report.
-- **Do NOT use unescaped double quotes or backticks in `--request`**. Wrap `--request` payloads in single quotes (or escape `$` and `` ` ``) so bash does not evaluate code identifiers as subshells.
-- **Do NOT approve artifact capture if the worker offers it**. If the worker asks whether to create or update `proposal.md`, `design.md`, or `specs/`, resume with `--request` instructing it to include all proposed designs and requirements directly in its markdown report without writing files.
+- **Do NOT use unescaped double quotes or backticks in `--prompt`**. Wrap `--prompt` payloads in single quotes (or escape `$` and `` ` ``) so bash does not evaluate code identifiers as subshells.
+- **Do NOT skip `--session "<id>"` or reuse one id across concurrent delegations**. The id is passed through unchanged (convention: `openspec-<slug>`, strictly lowercase `a-z` words separated by single hyphens — spell out any digits such as `openspec-oauth-two-a`); resuming a paused worker reuses the exact `--session "<id>"` with `--mode prompt --prompt '<answer>'`.
+- **Do NOT approve artifact capture if the worker offers it**. If the worker asks whether to create or update `proposal.md`, `design.md`, or `specs/`, resume with `--mode prompt --session "<id>" --prompt '...'` instructing it to include all proposed designs and requirements directly in its markdown report without writing files.
 
 ## Workflow Checklist
 
-- [ ] **Step 1**: Inspect OpenSpec context (`openspec list --json`, `openspec list --specs --json`) and evaluate `<request>` complexity.
+- [ ] **Step 1**: Inspect OpenSpec context (`openspec list --json`, `openspec list --specs --json`) and evaluate `<prompt>` complexity.
 - [ ] **Step 2**: Query live `--model` registry, snap `--level` to the chosen model's allowed array, and spawn `scripts/pi-rpc.ts` with a unique `--session`.
-- [ ] **Step 3 & 4**: Triage settlement status (`COMPLETED`, `PAUSED_FOR_CLARIFICATION`, or `FAILED`), autonomously resolving worker questions via same-session `--request` follow-ups.
+- [ ] **Step 3 & 4**: Triage settlement status (`COMPLETED`, `PAUSED_FOR_CLARIFICATION`, or `FAILED`), autonomously resolving worker questions via same-session `--mode prompt` follow-ups.
 - [ ] **Step 5**: Verify no files were mutated and present the worker's exploration report to the user.
 
 ---
@@ -58,11 +59,11 @@ Delegate read-only OpenSpec exploration and architectural investigation for a us
    - Durable specs: `openspec list --specs --json`
    *(If `openspec list --json` reports a malformed or unregistered store in `openspec/config.yaml`, halt and surface the error message and fix to the user.)*
 2. **Inspect Referenced Change or Spec Metadata (If Applicable)**:
-   If the user's `<request>` names a specific active change or capability spec, briefly inspect its status or summary so you can gauge scope and enrich the request context:
+   If the user's `<prompt>` names a specific active change or capability spec, briefly inspect its status or summary so you can gauge scope and enrich the request context:
    - Named change: `openspec status --change "<name>" --json`
    - Named spec: `openspec show "<spec-id>" --type spec --json --no-scenarios`
 3. **Evaluate Inquiry Scope & Analytical Depth**:
-   Assess `<request>` alongside the Step 1.1–1.2 context across three routing dimensions:
+   Assess `<prompt>` alongside the Step 1.1–1.2 context across three routing dimensions:
    - **Investigative Breadth**: Single file/function vs. localized module/spec vs. cross-cutting multi-module or system-wide architecture.
    - **Cognitive Depth**: Factual lookup/flow tracing vs. multi-option tradeoff comparison vs. deep root-cause diagnosis, concurrency, or protocol/parser design.
    - **Specification Coupling**: Greenfield brainstorming vs. reconciling multiple existing specs and in-flight changes.
@@ -92,12 +93,12 @@ Delegate read-only OpenSpec exploration and architectural investigation for a us
    - **Nearest Valid Level (Snapping)**: If a model omits an intermediate level (e.g., supporting `["low", "high", "max"]` without `"medium"`, or only supporting `["high"]`), snap to the nearest valid level in its array—rounding **up** for design/tradeoff analysis and **down** for simple lookups. Never pass a thinking level omitted from that model's Step 2.1 array.
 
 4. **Spawn Explore Runner**:
-   Derive a unique kebab-case `<session-slug>` per delegation (request slug or target change name plus a short suffix so concurrent delegations never collide) and execute the bridge runner with single quotes around `--request`:
+   Compose a fresh unique session id per delegation (convention `openspec-<topic>-<suffix>`, strictly lowercase `a-z` words separated by single hyphens — spell out any digits so `validateSessionId` passes and concurrent delegations never collide) and execute the bridge runner with single quotes around `--prompt`:
    ```bash
-   bun run .agents/skills/pi-worker/scripts/pi-rpc.ts --mode explore --session "<session-slug>" --model "<model>" --level "<level>" --request '<request>'
+   bun run .agents/skills/pi-worker/scripts/pi-rpc.ts --mode explore --session "<id>" --model "<model>" --level "<level>" --prompt '<prompt>'
    ```
-   - Validates `--model` and `--level` against `references/models.json` and spawns `pi -a --session-id "openspec-explore-<session-slug>" --mode rpc`
-   - Transmits `/skill:openspec-explore <request>` over stdin along with a strict read-only report mandate (forbidding file or OpenSpec artifact writes)
+   - Validates `--model` and `--level` against `references/models.json` and spawns `pi -a --session-id "<id>" --mode rpc`
+   - Transmits `/skill:openspec-explore <prompt>` over stdin along with a strict read-only report mandate (forbidding file or OpenSpec artifact writes)
    - Filters raw token deltas, emitting clean tool progress logs (`⚙ [pi:tool] Invoking: ...`) and capturing the worker's final markdown report between `[EXPLORE_REPORT_START]` and `[EXPLORE_REPORT_END]` upon `agent_settled`
    - *Progressive Disclosure*: Do **not** load [references/rpc-protocol.md](references/rpc-protocol.md) during normal execution; read it **only** if you need to diagnose malformed JSON-RPC framing or runner stream errors.
 
@@ -113,19 +114,19 @@ The worker emitted `[EXPLORE_REPORT_START] ... [EXPLORE_REPORT_END]` with a comp
 
 The worker paused to ask a clarifying question, narrow an investigative branch, or ask whether to capture artifacts.
 
-1. Read the worker's question from the runner log.
+1. Read the worker's question from the runner log (`[EXPLORE_REPORT_START] ... [EXPLORE_REPORT_END]` or `[PROMPT_RESPONSE_START] ... [PROMPT_RESPONSE_END]` on follow-up turns).
 2. **Autonomous Supervisor Triage (Default)**:
-   - **Artifact Capture Offers**: If the worker asks whether to scaffold a change (`openspec new change`) or write/update an OpenSpec artifact (`proposal.md`, `design.md`, `specs/`, `tasks.md`), **always refuse file creation** and resume with:
+   - **Artifact Capture Offers**: If the worker asks whether to scaffold a change (`openspec new change`) or write/update an OpenSpec artifact (`proposal.md`, `design.md`, `specs/`, `tasks.md`), **always refuse file creation** and resume via `--mode prompt` on the exact same `--session "<id>"`:
      ```bash
-     bun run .agents/skills/pi-worker/scripts/pi-rpc.ts --mode explore --session \"<session-slug>\" --request 'Do not create or modify any files or OpenSpec artifacts. Synthesize all findings, ASCII diagrams, tradeoff comparisons, and proposed specification/design details directly into your final markdown response.'
+     bun run .agents/skills/pi-worker/scripts/pi-rpc.ts --mode prompt --session "<id>" --prompt 'Do not create or modify any files or OpenSpec artifacts. Synthesize all findings, ASCII diagrams, tradeoff comparisons, and proposed specification/design details directly into your final markdown response.'
      ```
-   - **Codebase, Spec, or Context Questions**: Cross-reference the worker's question against `openspec/config.yaml`, `openspec/specs/**/*.md`, `openspec/changes/**/*.md`, `AGENTS.md`, and the codebase using `Read` and `Grep`. Formulate a concise answer grounded in repository context and resume the worker (single-quoting the `--request` payload):
+   - **Codebase, Spec, or Context Questions**: Cross-reference the worker's question against `openspec/config.yaml`, `openspec/specs/**/*.md`, `openspec/changes/**/*.md`, `AGENTS.md`, and the codebase using `Read` and `Grep`. Formulate a concise answer grounded in repository context and resume the worker via `--mode prompt` on the same `--session "<id>"` (single-quoting the `--prompt` payload so the answer is sent raw without re-invoking `/skill:openspec-explore`):
      ```bash
-     bun run .agents/skills/pi-worker/scripts/pi-rpc.ts --mode explore --session \"<session-slug>\" --request '<clarification-answer>'
+     bun run .agents/skills/pi-worker/scripts/pi-rpc.ts --mode prompt --session "<id>" --prompt '<clarification-answer>'
      ```
-   - Return to **Step 3** to inspect the next settlement state.
+   - Inspect the follow-up response between `[PROMPT_RESPONSE_START]` and `[PROMPT_RESPONSE_END]`: if it delivers the complete exploration report without a blocking question, proceed to **Step 5**; if it ends with another clarifying question (`?`), repeat **Case B**.
 3. **Human Escalation (Last Resort)**:
-   - Only if the worker's question requires a subjective product decision or external business constraint that cannot be inferred from the user's request, specs, or codebase, ask the user directly, then resume with `--mode explore --session \"<session-slug>\" --request '<user-answer>'` and return to **Step 3**.
+   - Only if the worker's question requires a subjective product decision or external business constraint that cannot be inferred from the user's request, specs, or codebase, ask the user directly, then resume with `--mode prompt --session "<id>" --prompt '<user-answer>'` and return to **Step 3**.
 
 #### Case C: `[STATUS] FAILED`
 

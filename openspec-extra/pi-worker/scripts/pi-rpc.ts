@@ -8,40 +8,46 @@
  * turn timeout, settlement) with a `--mode` switch for the workflow bindings:
  *
  * - `--mode apply   <change-name>`   -> `/skill:openspec-apply-change`, task-count gate
- * - `--mode explore <request>`       -> `/skill:openspec-explore`, report-marker gate
+ * - `--mode explore <prompt>`        -> `/skill:openspec-explore`, report-marker gate
+ * - `--mode prompt  <prompt>`        -> raw delivery, no prefix or mandate, framed response
  * - no `--mode`                      -> prints the JSON mode catalog
- *                                       `{"explore": "<directive>", "apply": "<directive>"}`
- *                                       read from sibling `references/*.md`
+ *                                       `{"apply": "<directive>", "explore": "<directive>", "prompt": "<description>"}`
+ *                                       directives read from sibling `references/*.md`
  *
- * Flag contract (two-flag form — no `--reply`/`--continue`; every resume is
- * `--session <same-slug> --request <new text>`):
- *   --mode <apply|explore>   workflow binding (missing -> catalog, invalid -> error listing modes)
+ * Flag contract (no `--reply`/`--continue`; every resume reuses --session with a new --prompt):
+ *   --mode <apply|explore|prompt> workflow binding (missing -> catalog, invalid -> error listing modes)
  *   --model <(provider/)name> validated against sibling `references/models.json`
  *   --level <level>          validated against the model's allowed array; forwarded
  *                            to pi's `--thinking` (single translation point below)
- *   --session <slug>         always required; identity AND routing key.
- *                            Fresh inquiry -> fresh slug; follow-ups reuse it.
- *                            Session id derives as `openspec-<mode>-<slug>`.
- *   --request <text>         apply: the change name; explore: the free-text request.
+ *   --session <id>           always required: the exact caller-owned Pi session id.
+ *                            Fresh inquiry -> fresh unique id; follow-ups reuse it verbatim,
+ *                            including across modes (prompt can continue an apply/explore session).
+ *                            Syntax `^[a-z]+(?:-[a-z]+)*$`; invalid -> error, never sanitized.
+ *   --prompt <text>          apply: the OpenSpec change name; explore/prompt: the free-text prompt.
  *   --timeout <ms> --root <path> --verbose --model (no arg: registry JSON) -h/--help
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 // ============================================================ Layout
 const SCRIPTS_DIR = dirname(import.meta.path ?? __filename);
 const REFERENCES_DIR = join(SCRIPTS_DIR, "..", "references");
 const MODELS_PATH = join(REFERENCES_DIR, "models.json");
 
-export type Mode = "apply" | "explore";
-export const MODES: readonly Mode[] = ["apply", "explore"];
+export type Mode = "apply" | "explore" | "prompt";
+export const MODES: readonly Mode[] = ["apply", "explore", "prompt"];
 
-const MODE_DIRECTIVE_FILES: Record<Mode, string> = {
+const MODE_DIRECTIVE_FILES: Partial<Record<Mode, string>> = {
   apply: join(REFERENCES_DIR, "openspec-pi-apply.md"),
   explore: join(REFERENCES_DIR, "openspec-pi-explore.md"),
 };
+
+// Prompt mode has no directive file: raw delivery needs no workflow doctrine.
+const PROMPT_MODE_DESCRIPTION =
+  "Raw prompt delivery: sends --prompt unchanged with no skill prefix or mandate; " +
+  "supports new sessions and follow-ups to existing sessions (including apply/explore sessions).";
 
 export interface ModelDefinition {
   provider: string;
@@ -62,8 +68,9 @@ interface CliOptions {
   mode?: string;
   model?: string;
   level?: string;
-  sessionSlug?: string;
-  requestText?: string;
+  sessionId?: string;
+  promptText?: string;
+  retiredRequest?: string;
   timeoutMs: number;
   explicitRoot?: string;
   verbose: boolean;
@@ -90,18 +97,40 @@ const READ_ONLY_MANDATE =
   `End your response with a question mark (?) ONLY if you are blocked and must pause ` +
   `for supervisor clarification before you can complete the investigation.]`;
 
-export function buildInitialPrompt(mode: Mode, request: string): string {
+export function buildInitialPrompt(mode: Mode, prompt: string): string {
   if (mode === "apply") {
-    return `/skill:openspec-apply-change ${request}\n\n${APPLY_MANDATE}`;
+    return `/skill:openspec-apply-change ${prompt}\n\n${APPLY_MANDATE}`;
   }
-  return `/skill:openspec-explore ${request}\n\n${READ_ONLY_MANDATE}`;
+  if (mode === "explore") {
+    return `/skill:openspec-explore ${prompt}\n\n${READ_ONLY_MANDATE}`;
+  }
+  return prompt;
+}
+
+// Pure output contract for prompt mode (testable without spawning pi).
+export function formatPromptSettlement(report: string): { ok: boolean; lines: string[] } {
+  if (!report) return { ok: false, lines: [] };
+  return {
+    ok: true,
+    lines: [
+      `[PROMPT_RESPONSE_START]`,
+      report,
+      `[PROMPT_RESPONSE_END]`,
+      `[STATUS] COMPLETED: prompt response delivered.`,
+    ],
+  };
 }
 
 // ============================================================ Mode catalog
 export function loadModeDirectives(refDir: string = REFERENCES_DIR): Record<Mode, string> {
   const out = {} as Record<Mode, string>;
   for (const mode of MODES) {
-    const p = join(refDir, MODE_DIRECTIVE_FILES[mode].split("/").pop() as string);
+    const file = MODE_DIRECTIVE_FILES[mode];
+    if (!file) {
+      out[mode] = PROMPT_MODE_DESCRIPTION;
+      continue;
+    }
+    const p = join(refDir, basename(file));
     if (!existsSync(p)) {
       throw new Error(`mode directive missing: ${p}`);
     }
@@ -183,16 +212,32 @@ export function checkModelAndThinking(
 }
 
 // ============================================================ Session & workspace
+const SESSION_ID_PATTERN = /^[a-z]+(?:-[a-z]+)*$/;
+
+export interface SessionCheckResult {
+  valid: boolean;
+  error?: string;
+}
+
 /**
- * Sanitizes a delegation slug into a valid pi session ID.
- * Pi CLI constraints: start/end alphanumeric, interior [a-zA-Z0-9._-].
- * Returns `openspec-<mode>-<safeSlug>`.
+ * Validates a caller-owned session id. The id is passed through unchanged on
+ * success; nothing is derived, prefixed, or sanitized. Convention (documented
+ * in the skill, not enforced here): `openspec-<slug>` for readability.
  */
-export function resolveSessionId(mode: Mode, slug: string): string {
-  let safe = slug.trim().replace(/[^a-zA-Z0-9._-]/g, "-");
-  safe = safe.replace(/^[^a-zA-Z0-9]+/, "").replace(/[^a-zA-Z0-9]+$/, "");
-  if (!safe) safe = "task";
-  return `openspec-${mode}-${safe}`;
+export function validateSessionId(id: string | undefined): SessionCheckResult {
+  if (!id) {
+    return {
+      valid: false,
+      error: "--session <id> is required: lowercase a-z words separated by single hyphens (e.g. openspec-fix-auth).",
+    };
+  }
+  if (!SESSION_ID_PATTERN.test(id)) {
+    return {
+      valid: false,
+      error: `Invalid --session '${id}': use lowercase a-z words separated by single hyphens (e.g. openspec-fix-auth).`,
+    };
+  }
+  return { valid: true };
 }
 
 /**
@@ -237,9 +282,12 @@ export function parseArgs(args: string[]): CliOptions {
     } else if (arg === "--level") {
       options.level = args[++i];
     } else if (arg === "--session") {
-      options.sessionSlug = args[++i];
+      options.sessionId = args[++i];
     } else if (arg === "--request") {
-      options.requestText = args[++i];
+      // Retired: keep the value so argv indexing stays aligned; main() rejects.
+      options.retiredRequest = args[++i];
+    } else if (arg === "--prompt") {
+      options.promptText = args[++i];
     } else if (arg === "--timeout") {
       options.timeoutMs = parseInt(args[++i], 10) || 300_000;
     } else if (arg === "--root") {
@@ -255,17 +303,20 @@ function printHelp(): void {
   console.log(`pi-rpc — headless pi worker bridge (apply | explore) over JSON-RPC
 
 Usage:
-  pi-rpc --mode apply   --session <slug> --request "<change-name>" [--model M] [--level L]
-  pi-rpc --mode explore --session <slug> --request "<request>"    [--model M] [--level L]
-  pi-rpc                # no --mode: print the JSON mode catalog {explore, apply}
+  pi-rpc --mode apply   --session <id> --prompt "<change-name>" [--model M] [--level L]
+  pi-rpc --mode explore --session <id> --prompt '<request>'       [--model M] [--level L]
+  pi-rpc --mode prompt  --session <id> --prompt '<text>'          [--model M] [--level L]
+  pi-rpc                # no --mode: print the JSON mode catalog {apply, explore, prompt}
 
 Options:
-  --mode <apply|explore>  Workflow binding. Missing: prints the mode catalog.
+  --mode <apply|explore|prompt> Workflow binding. Missing: prints the mode catalog.
   --model [<name>]        Model to use (bare or <provider>/<model>). Without argument: list available models.
   --level <level>         Level for the model (must exist in its allowed array; forwarded to pi's --thinking).
-  --session <slug>        REQUIRED. Delegation identity AND routing key: fresh inquiry -> fresh slug,
-                          follow-ups reuse it. Session id derives as openspec-<mode>-<slug>.
-  --request <text>        apply: the OpenSpec change name. explore: the free-text exploration request.
+  --session <id>          REQUIRED. Exact caller-owned Pi session id, passed through unchanged.
+                          Fresh inquiry -> fresh unique id; follow-ups reuse it verbatim
+                          (prompt may continue an apply/explore session). Syntax:
+                          lowercase a-z words separated by single hyphens (e.g. openspec-fix-auth).
+  --prompt <text>         apply: the OpenSpec change name. explore/prompt: the free-text prompt.
   --timeout <ms>          Turn timeout in milliseconds (default: 300000ms / 5 min).
   --root <path>           Explicit workspace root directory.
   --verbose               Print detailed event diagnostics to stderr.
@@ -290,11 +341,26 @@ export async function main(): Promise<void> {
   }
   const mode = options.mode as Mode;
 
-  if (!options.sessionSlug || !options.requestText) {
-    const message = `--mode ${mode} requires --session <slug> and --request <text>.`;
+  if (options.retiredRequest !== undefined) {
+    const message = `--request was renamed to --prompt. Re-run with --prompt "<text>".`;
     console.error(`[pi-runner] ${message}`);
     console.log(`[STATUS] FAILED: ${message}`);
     printHelp();
+    process.exit(1);
+  }
+
+if (!options.sessionId || !options.promptText) {
+    const message = `--mode ${mode} requires --session <id> and --prompt <text>.`;
+    console.error(`[pi-runner] ${message}`);
+    console.log(`[STATUS] FAILED: ${message}`);
+    printHelp();
+    process.exit(1);
+  }
+
+const sessionCheck = validateSessionId(options.sessionId);
+  if (!sessionCheck.valid) {
+    console.error(`[pi-runner] ${sessionCheck.error}`);
+    console.log(`[STATUS] FAILED: ${sessionCheck.error}`);
     process.exit(1);
   }
 
@@ -306,15 +372,17 @@ export async function main(): Promise<void> {
   }
 
   const workspaceRoot = options.explicitRoot ? resolve(options.explicitRoot) : resolveWorkspaceRoot();
-  const sessionId = resolveSessionId(mode, options.sessionSlug);
-  const initialPrompt = buildInitialPrompt(mode, options.requestText);
+  const sessionId = options.sessionId;
+  const initialPrompt = buildInitialPrompt(mode, options.promptText);
 
   console.log(`[pi-runner] Workspace root resolved to: ${workspaceRoot}`);
   console.log(`[pi-runner] Mode: ${mode} | session: ${sessionId}`);
   if (mode === "apply") {
-    console.log(`[pi-runner] Starting apply for change: '${options.requestText}'...`);
+    console.log(`[pi-runner] Starting apply for change: '${options.promptText}'...`);
+  } else if (mode === "explore") {
+    console.log(`[pi-runner] Starting exploration: '${options.promptText.slice(0, 80)}...'`);
   } else {
-    console.log(`[pi-runner] Starting exploration: '${options.requestText.slice(0, 80)}...'`);
+    console.log(`[pi-runner] Starting prompt: '${options.promptText.slice(0, 80)}...'`);
   }
 
   const spawnArgs = ["-a", "--session-id", sessionId];
@@ -442,8 +510,8 @@ export async function main(): Promise<void> {
       const req = record as Record<string, unknown>;
       const method = req.method as string;
       if (["select", "confirm", "input", "editor"].includes(method)) {
-        // Mode-dependent default: apply auto-approves (true); explore resolves
-        // confirm to false so the worker never receives implicit write permission.
+        // Mode-dependent default: apply auto-approves (true); explore and prompt
+        // resolve confirm to false so the worker never receives implicit write permission.
         let value: unknown = mode === "apply";
         if (method === "select") value = (req.options as string[])?.[0] || "";
         if (method === "input") value = "";
@@ -523,8 +591,10 @@ export async function main(): Promise<void> {
     const report = lastAssistantMessage.trim();
     if (mode === "apply") {
       settleApply(report);
-    } else {
+    } else if (mode === "explore") {
       settleExplore(report);
+    } else {
+      settlePrompt(report);
     }
   }
 
@@ -543,7 +613,16 @@ export async function main(): Promise<void> {
     safeExit(0);
   }
 
-  function settleApply(report: string): void {
+function settlePrompt(report: string): void {
+  const out = formatPromptSettlement(report);
+  if (!out.ok) {
+    failAndExit("Worker settled with an empty prompt response.");
+  }
+  for (const line of out.lines) console.log(line);
+  safeExit(0);
+}
+
+function settleApply(report: string): void {
     if (report) {
       console.log(`[APPLY_REPORT_START]`);
       console.log(report);
@@ -552,7 +631,7 @@ export async function main(): Promise<void> {
     let proc: ReturnType<typeof Bun.spawnSync>;
     try {
       proc = Bun.spawnSync(
-        ["openspec", "instructions", "apply", "--change", options.requestText as string, "--json"],
+        ["openspec", "instructions", "apply", "--change", options.promptText as string, "--json"],
         { cwd: workspaceRoot }
       );
     } catch (e) {
@@ -575,11 +654,11 @@ export async function main(): Promise<void> {
     const complete = applyJson.progress?.complete ?? 0;
     const remaining = applyJson.progress?.remaining ?? 0;
     if (total === 0) {
-      failAndExit(`Change '${options.requestText}' has 0 total tasks in tasks.md.`);
+      failAndExit(`Change '${options.promptText}' has 0 total tasks in tasks.md.`);
     }
     if (remaining === 0) {
       console.log(`\n========================================`);
-      console.log(`[STATUS] COMPLETED: All ${complete}/${total} tasks for '${options.requestText}' are complete!`);
+      console.log(`[STATUS] COMPLETED: All ${complete}/${total} tasks for '${options.promptText}' are complete!`);
       console.log(`========================================\n`);
       safeExit(0);
       return;

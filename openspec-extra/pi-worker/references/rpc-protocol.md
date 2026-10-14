@@ -1,16 +1,16 @@
 # Pi JSON-RPC Protocol Reference (pi worker bridges)
 
-Shared framing, lifecycle events, and output contract for `scripts/pi-rpc.ts` across both modes controlling headless `pi` subprocesses. Workflow-specific bindings are marked **(apply)** / **(explore)**.
+Shared framing, lifecycle events, and output contract for `scripts/pi-rpc.ts` across all three modes controlling headless `pi` subprocesses. Workflow-specific bindings are marked **(apply)** / **(explore)** / **(prompt)**.
 
 ## Process Invocation Flags
 
 - `-a` (`--approve`): Auto-approves workspace tool operations within project scope, preventing interactive TTY prompts. **(apply)**
 - `-a` (`--approve`): Auto-approves read-only tool operations within workspace scope, preventing interactive TTY prompts. **(explore)**
-- `--session-id "openspec-apply-<slug>"` **(apply)**: Enforces change-scoped session isolation. Reuses the exact session across `--request` follow-up turns without colliding with concurrent exploration or other change sessions.
+- `--session-id "<id>"` **(all modes)**: Caller-owned session identity, passed through unchanged. Fresh delegations use a fresh unique id (convention: `openspec-<slug>`); follow-ups reuse it verbatim, including across modes. Syntax `^[a-z]+(?:-[a-z]+)*$`; invalid ids are rejected before launch.
 - `--model "<provider>/<model>"` and `--level "<level>"`: Canonical model and thinking depth validated against `references/models.json`.
 - `--mode rpc`: Activates bidirectional newline-delimited JSON-RPC streaming over standard I/O.
 
-- `--session-id "openspec-explore-<session-slug>"`: **(explore)** Delegation-scoped session isolation. Reuses the exact session across `--request` follow-up turns without colliding with concurrent exploration or apply sessions.
+- Uniqueness is the caller's job: reusing an id across concurrent delegations interleaves their sessions.
 
 ## Standard Input Commands
 
@@ -32,32 +32,33 @@ Transmits the `openspec-explore` skill invocation and read-only supervisor manda
 {
   "id": "prompt-1710000000000",
   "type": "prompt",
-  "message": "/skill:openspec-explore <request>\n\n[SUPERVISOR MANDATE: Operate strictly in read-only exploration mode...]"
+  "message": "/skill:openspec-explore <prompt>\n\n[SUPERVISOR MANDATE: Operate strictly in read-only exploration mode...]"
 }
 ```
 *Note*: `pi` natively expands `/skill:openspec-explore` prior to session execution.
 
+### Initial Prompt Command (prompt)
+Sends the `--prompt` text unchanged with no skill prefix or mandate:
+```json
+{
+  "id": "prompt-1710000000000",
+  "type": "prompt",
+  "message": "<text>"
+}
+```
+The runner frames the settled response between `[PROMPT_RESPONSE_START]` and `[PROMPT_RESPONSE_END]` and reports `[STATUS] COMPLETED` (empty output is `FAILED`).
 
-### Clarification / Triage Reply Command (apply)
-Resumes a paused apply session (`--session "<slug>" --request '<answer>'`) with specification context or instructions to mark completed checkboxes in `tasks.md`:
+
+### Clarification / Triage Reply Command (all modes via prompt)
+Resumes a paused `apply`, `explore`, or `prompt` session (`--mode prompt --session "<id>" --prompt '<answer>'`) by sending the answer raw into the existing session without re-expanding `/skill:*` or re-attaching a supervisor mandate:
 ```json
 {
   "id": "prompt-1710000050000",
   "type": "prompt",
-  "message": "<clarification-answer>\n\n[SUPERVISOR MANDATE: Implement the pending tasks for this OpenSpec change...]"
+  "message": "<clarification-answer>"
 }
 ```
-
-
-### Clarification / Triage Reply Command (explore)
-Resumes a paused exploration session (`--mode explore --session \"<session-slug>\" --request '<answer>'`) with repository context or a refusal to write artifacts:
-```json
-{
-  "id": "prompt-1710000050000",
-  "type": "prompt",
-  "message": "<clarification-answer>\n\n[SUPERVISOR MANDATE: Operate strictly in read-only exploration mode...]"
-}
-```
+*Note*: After a `--mode prompt` follow-up to an `apply` session settles with `[STATUS] COMPLETED`, the supervisor runs `openspec instructions apply --change "<change-name>" --json` to verify whether `progress.remaining === 0` before treating the apply workflow as complete.
 
 ## Protocol Record Families
 
@@ -107,6 +108,17 @@ The protocol communicates via LF-terminated (`\n`) JSON objects across four reco
    - `[STATUS] PAUSED_FOR_CLARIFICATION`: Worker paused with a blocking question for the supervisor.
    - `[STATUS] FAILED`: Worker crashed, timed out, returned an empty report, or violated the read-only guardrail.
 
+### Settlement (prompt)
+
+1. **`message_update` (suppressed by runner)**:
+   Emits high-frequency token deltas (`text_delta`, `thinking_delta`). The runner discards these to prevent supervisor context bloat.
+2. **`toolcall_start` / `toolcall_end` & `message_end`**:
+   Logs tool invocations/completions and captures the assistant turn text into `lastAssistantMessage`.
+3. **`agent_settled`**:
+   Emitted when the worker finishes its turn loop. Prints `lastAssistantMessage` between `[PROMPT_RESPONSE_START]` and `[PROMPT_RESPONSE_END]` and emits:
+   - `[STATUS] COMPLETED: prompt response delivered.` (for any non-empty response, including responses ending with `?`).
+   - `[STATUS] FAILED`: Worker crashed, timed out, or settled with an empty response.
+
 ## Extension UI Sub-Protocol
 
 Interactive extensions may emit `extension_ui_request` on stdout:
@@ -126,7 +138,7 @@ In apply mode, the runner auto-resolves dialog requests on stdin using default/p
 }
 ```
 
-Explore differs in exactly one value: `confirm` requests resolve to `false` so the worker never receives implicit permission to scaffold or write OpenSpec artifacts:
+Explore and prompt modes differ in `confirm`: `confirm` requests resolve to `false` so the worker never receives implicit extension UI confirmation:
 ```json
 {
   "type": "extension_ui_response",
@@ -141,3 +153,4 @@ Explore differs in exactly one value: `confirm` requests resolve to `false` so t
 - **Continuous Drain**: Stdout is drained continuously via stream listeners to avoid backpressure stalls.
 - **Channel Separation (apply)**: Stdout carries clean runner progress, `[APPLY_REPORT_START] ... [APPLY_REPORT_END]`, and `[STATUS]`; raw diagnostics route to stderr.
 - **Channel Separation (explore)**: Stdout carries clean runner progress, `[EXPLORE_REPORT_START] ... [EXPLORE_REPORT_END]`, and `[STATUS]`; raw diagnostics route to stderr.
+- **Channel Separation (prompt)**: Stdout carries clean runner progress, `[PROMPT_RESPONSE_START] ... [PROMPT_RESPONSE_END]`, and `[STATUS]`; raw diagnostics route to stderr.
