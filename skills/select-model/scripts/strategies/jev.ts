@@ -31,13 +31,13 @@ async function loadTypeSafeSdk(): Promise<{
 }
 
 const LEVEL_DESCRIPTIONS: Record<ThinkingLevel, string> = {
-  off: "No extended thinking; instant response for simple lookups, formatting, or minor typos.",
-  minimal: "Bare minimum reasoning; localized single-line edits.",
-  low: "Short reasoning; routine bug fixes or straightforward logic.",
-  medium: "Balanced reasoning; standard feature development and multi-function edits.",
-  high: "Deep reasoning; multi-file structural refactoring, concurrency, and async data contracts.",
-  xhigh: "Very deep reasoning; complex distributed algorithms, protocol redesign, and system architecture.",
-  max: "Maximum reasoning depth; mission-critical verification, compiler passes, and complex mathematical proofs.",
+  off: "Mechanical or trivial tasks requiring zero deliberation: typo fixes, formatting, comment edits, or simple config toggles.",
+  minimal: "Single-line or localized edits within one function where the exact change is already specified.",
+  low: "Straightforward bug fixes, simple helper functions, or unit tests with clear inputs and outputs.",
+  medium: "Standard feature implementation, CLI/API handlers, or localized refactoring across a few functions.",
+  high: "Multi-file feature integration, SDK/worker orchestration, cross-module refactoring, or nontrivial state and error-handling contracts.",
+  xhigh: "Deep architectural redesign, complex concurrency or distributed state machines, and subtle cross-system invariants.",
+  max: "Mission-critical formal verification, novel algorithm synthesis, or compiler/runtime soundness proofs.",
 };
 
 export class JevStrategy implements SelectorStrategy {
@@ -74,11 +74,7 @@ export class JevStrategy implements SelectorStrategy {
     const modelCriteria: ChoiceCriteria = {};
     for (const [id, entry] of Object.entries(input.catalog.models)) {
       const desc = entry.description ? `${entry.description} ` : "";
-      const caps =
-        entry.capabilities && entry.capabilities.length > 0
-          ? `Capabilities: ${entry.capabilities.join(", ")}. `
-          : "";
-      modelCriteria[id] = `${desc}${caps}Provider: ${entry.provider}. Supported thinking levels: ${entry.levels.join(", ")}.`;
+      modelCriteria[id] = `${desc}Provider: ${entry.provider}. Supported thinking levels: ${entry.levels.join(", ")}.`;
     }
 
     const levelCriteria: ChoiceCriteria = {};
@@ -94,7 +90,7 @@ export class JevStrategy implements SelectorStrategy {
       reference_files: input.context.files.map((f) => ({
         path: f.path,
         lines: f.lineCount,
-        excerpt: f.content.slice(0, 300),
+        content: f.content,
       })),
     };
 
@@ -103,11 +99,11 @@ export class JevStrategy implements SelectorStrategy {
         state: JSON.stringify(stateSummary),
         questions: {
           model: choice(
-            "Which model from the catalog is most appropriate and cost-effective for this task?",
+            "Which model from the catalog best matches the cognitive demands, scope, and architectural complexity of this task?",
             modelCriteria
           ),
           thinking_level: choice(
-            "What level of reasoning/thinking is most appropriate for this task?",
+            "What level of reasoning depth is required to safely and accurately complete this task?",
             levelCriteria
           ),
         },
