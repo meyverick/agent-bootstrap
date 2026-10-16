@@ -1,12 +1,34 @@
-import { TypeSafeClient, choice } from "@typesafe-ai/sdk";
 import {
   type SelectionInput,
   type SelectionResult,
   type SelectorStrategy,
   type ThinkingLevel,
-  type ChoiceCriteria,
 } from "./types.js";
 import { clampThinkingLevel } from "./heuristic.js";
+
+type ChoiceCriteria = Record<string, string>;
+
+async function loadTypeSafeSdk(): Promise<{
+  TypeSafeClient: any;
+  choice: (instructions: string, criteria: ChoiceCriteria) => any;
+}> {
+  try {
+    return (await import("@typesafe-ai/sdk")) as any;
+  } catch {
+    try {
+      const { execSync } = await import("node:child_process");
+      const globalRoot = execSync("npm root -g", { encoding: "utf8" }).trim();
+      const globalEntry = `${globalRoot}/@typesafe-ai/sdk/dist/index.mjs`;
+      return (await import(globalEntry)) as any;
+    } catch {
+      console.error(
+        "[select-model] Error: @typesafe-ai/sdk could not be resolved from local or global npm modules.\n" +
+          "Ensure it is installed globally ('npm i -g @typesafe-ai/sdk') or set in NODE_PATH."
+      );
+      process.exit(1);
+    }
+  }
+}
 
 const LEVEL_DESCRIPTIONS: Record<ThinkingLevel, string> = {
   off: "No extended thinking; instant response for simple lookups, formatting, or minor typos.",
@@ -31,6 +53,7 @@ export class JevStrategy implements SelectorStrategy {
       process.exit(1);
     }
 
+    const { TypeSafeClient, choice } = await loadTypeSafeSdk();
     const client = new TypeSafeClient({ apiKey });
 
     const modelCriteria: ChoiceCriteria = {};
