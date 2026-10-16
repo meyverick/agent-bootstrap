@@ -54,7 +54,22 @@ export class JevStrategy implements SelectorStrategy {
     }
 
     const { TypeSafeClient, choice } = await loadTypeSafeSdk();
-    const client = new TypeSafeClient({ apiKey });
+
+    const bunFetch = async (
+      input: string | URL | Request,
+      init?: RequestInit
+    ): Promise<Response> => {
+      const response = await fetch(input, init);
+      const originalClone = response.clone.bind(response);
+      response.clone = () => {
+        const c = originalClone();
+        Object.defineProperty(c, "body", { value: null, configurable: true });
+        return c;
+      };
+      return response;
+    };
+
+    const client = new TypeSafeClient({ apiKey, fetch: bunFetch });
 
     const modelCriteria: ChoiceCriteria = {};
     for (const [id, entry] of Object.entries(input.catalog.models)) {
