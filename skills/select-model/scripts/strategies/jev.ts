@@ -1,0 +1,99 @@
+import { TypeSafeClient, choice } from "@typesafe-ai/sdk";
+import {
+  type SelectionInput,
+  type SelectionResult,
+  type SelectorStrategy,
+  type ThinkingLevel,
+  type ChoiceCriteria,
+} from "./types.js";
+import { clampThinkingLevel } from "./heuristic.js";
+
+const LEVEL_DESCRIPTIONS: Record<ThinkingLevel, string> = {
+  off: "No extended thinking; instant response for simple lookups, formatting, or minor typos.",
+  minimal: "Bare minimum reasoning; localized single-line edits.",
+  low: "Short reasoning; routine bug fixes or straightforward logic.",
+  medium: "Balanced reasoning; standard feature development and multi-function edits.",
+  high: "Deep reasoning; multi-file structural refactoring, concurrency, and async data contracts.",
+  xhigh: "Very deep reasoning; complex distributed algorithms, protocol redesign, and system architecture.",
+  max: "Maximum reasoning depth; mission-critical verification, compiler passes, and complex mathematical proofs.",
+};
+
+export class JevStrategy implements SelectorStrategy {
+  readonly name = "jev" as const;
+
+  async select(input: SelectionInput): Promise<SelectionResult> {
+    const apiKey = process.env.TYPESAFE_API_KEY?.trim();
+    if (!apiKey) {
+      console.error(
+        "[select-model] Error: TYPESAFE_API_KEY is not set in the environment.\n" +
+          "Please export TYPESAFE_API_KEY or run with --strategy heuristic."
+      );
+      process.exit(1);
+    }
+
+    const client = new TypeSafeClient({ apiKey });
+
+    const modelCriteria: ChoiceCriteria = {};
+    for (const [id, entry] of Object.entries(input.catalog.models)) {
+      modelCriteria[id] = `Provider: ${entry.provider}. Supported thinking levels: ${entry.levels.join(", ")}.`;
+    }
+
+    const levelCriteria: ChoiceCriteria = {};
+    for (const [lvl, desc] of Object.entries(LEVEL_DESCRIPTIONS)) {
+      levelCriteria[lvl] = desc;
+    }
+
+    const stateSummary = {
+      task_prompt: input.prompt,
+      reference_files_count: input.context.totalFiles,
+      reference_total_lines: input.context.totalLines,
+      reference_total_bytes: input.context.totalBytes,
+      reference_files: input.context.files.map((f) => ({
+        path: f.path,
+        lines: f.lineCount,
+        excerpt: f.content.slice(0, 300),
+      })),
+    };
+
+    try {
+      const response = await client.systemOne({
+        state: JSON.stringify(stateSummary),
+        questions: {
+          model: choice(
+            "Which model from the catalog is most appropriate and cost-effective for this task?",
+            modelCriteria
+          ),
+          thinking_level: choice(
+            "What level of reasoning/thinking is most appropriate for this task?",
+            levelCriteria
+          ),
+        },
+      });
+
+      const chosenModelName = response.answers.model.choice;
+      const chosenLevelName = response.answers.thinking_level.choice as ThinkingLevel;
+      const confidence = response.answers.model.confidence ?? 0.9;
+
+      const catalogEntry = input.catalog.models[chosenModelName];
+      if (!catalogEntry) {
+        throw new Error(`Jev returned model "${chosenModelName}" which is not in the model catalog.`);
+      }
+
+      const clampedLevel = clampThinkingLevel(chosenLevelName, catalogEntry.levels);
+
+      return {
+        model: chosenModelName,
+        provider: catalogEntry.provider,
+        thinking_level: clampedLevel,
+        strategy_used: "jev",
+        confidence,
+        reasoning: `TypeSafe Jev SDK selected model "${chosenModelName}" (confidence: ${confidence.toFixed(
+          2
+        )}). Target level "${chosenLevelName}" clamped to "${clampedLevel}" supported by model.`,
+      };
+    } catch (err) {
+      console.error(`[select-model] Jev SDK request failed: ${String(err)}`);
+      throw err;
+    }
+  }
+}
