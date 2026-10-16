@@ -16,15 +16,14 @@
  *
  * Flag contract (no `--reply`/`--continue`; every resume reuses --session with a new --prompt):
  *   --mode <apply|explore|prompt> workflow binding (missing -> catalog, invalid -> error listing modes)
- *   --model <(provider/)name> validated against sibling `references/models.json`
- *   --level <level>          validated against the model's allowed array; forwarded
- *                            to pi's `--thinking` (single translation point below)
+ *   --model <(provider/)name> passed straight through to pi's `--model` (no arg -> prints instruction to ask user)
+ *   --level <level>          passed straight through to pi's `--thinking` (single translation point below)
  *   --session <id>           always required: the exact caller-owned Pi session id.
  *                            Fresh inquiry -> fresh unique id; follow-ups reuse it verbatim,
  *                            including across modes (prompt can continue an apply/explore session).
  *                            Syntax `^[a-z]+(?:-[a-z]+)*$`; invalid -> error, never sanitized.
  *   --prompt <text>          apply: the OpenSpec change name; explore/prompt: the free-text prompt.
- *   --timeout <ms> --root <path> --verbose --model (no arg: registry JSON) -h/--help
+ *   --timeout <ms> --root <path> --verbose --model (no arg: ask-user instruction) -h/--help
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
@@ -34,7 +33,6 @@ import { basename, dirname, join, resolve } from "node:path";
 // ============================================================ Layout
 const SCRIPTS_DIR = dirname(import.meta.path ?? __filename);
 const REFERENCES_DIR = join(SCRIPTS_DIR, "..", "references");
-const MODELS_PATH = join(REFERENCES_DIR, "models.json");
 
 export type Mode = "apply" | "explore" | "prompt";
 export const MODES: readonly Mode[] = ["apply", "explore", "prompt"];
@@ -48,21 +46,6 @@ const MODE_DIRECTIVE_FILES: Partial<Record<Mode, string>> = {
 const PROMPT_MODE_DESCRIPTION =
   "Raw prompt delivery: sends --prompt unchanged with no skill prefix or mandate; " +
   "supports new sessions and follow-ups to existing sessions (including apply/explore sessions).";
-
-export interface ModelDefinition {
-  provider: string;
-  levels: string[];
-}
-
-export interface ModelsCatalog {
-  models: Record<string, ModelDefinition>;
-}
-
-export interface ModelCheckResult {
-  valid: boolean;
-  error?: string;
-  canonicalModel?: string;
-}
 
 interface CliOptions {
   mode?: string;
@@ -148,67 +131,12 @@ function printModeCatalog(): void {
   }
 }
 
-// ============================================================ Model registry
-export function loadAllowedModels(refDir: string = REFERENCES_DIR): Record<string, ModelDefinition> {
-  const modelsPath = join(refDir, "models.json");
-  if (!existsSync(modelsPath)) {
-    throw new Error(`models.json not found at ${modelsPath}`);
-  }
-  const content = readFileSync(modelsPath, "utf8");
-  let parsed: ModelsCatalog;
-  try {
-    parsed = JSON.parse(content) as ModelsCatalog;
-  } catch (e) {
-    throw new Error(`models.json at ${modelsPath} is not valid JSON: ${e instanceof Error ? e.message : e}`);
-  }
-  return parsed.models ?? {};
-}
+// ============================================================ Model instruction
+export const MODEL_PROMPT_INSTRUCTION =
+  'Ask the user which model and reasoning level to use before invoking pi-rpc.ts, then pass their choice via --model "<model>" and --level "<level>".';
 
-export function printAvailableModels(models: Record<string, ModelDefinition>): void {
-  const flat: Record<string, string[]> = {};
-  for (const [model, def] of Object.entries(models)) {
-    flat[model] = def.levels;
-  }
-  console.log(JSON.stringify(flat));
-}
-
-export function checkModelAndThinking(
-  model?: string,
-  level?: string,
-  models: Record<string, ModelDefinition> = loadAllowedModels()
-): ModelCheckResult {
-  if (model) {
-    let resolvedDefinition: ModelDefinition | undefined;
-    let canonicalModel: string | undefined;
-    if (models[model]) {
-      resolvedDefinition = models[model];
-      canonicalModel = `${resolvedDefinition.provider}/${model}`;
-    } else if (model.includes("/")) {
-      const slashIndex = model.indexOf("/");
-      const providerPart = model.slice(0, slashIndex);
-      const modelPart = model.slice(slashIndex + 1);
-      if (models[modelPart] && models[modelPart].provider === providerPart) {
-        resolvedDefinition = models[modelPart];
-        canonicalModel = model;
-      }
-    }
-    if (!resolvedDefinition || !canonicalModel) {
-      return { valid: false, error: `Model '${model}' is not in allowed models.json.` };
-    }
-    if (level) {
-      if (!resolvedDefinition.levels.includes(level)) {
-        return {
-          valid: false,
-          error: `Level '${level}' is not supported for model '${model}'. Allowed: ${resolvedDefinition.levels.join(", ")}`,
-        };
-      }
-    }
-    return { valid: true, canonicalModel };
-  }
-  if (level) {
-    return { valid: false, error: `--level cannot be specified without --model.` };
-  }
-  return { valid: true };
+export function printModelPromptInstruction(): void {
+  console.log(MODEL_PROMPT_INSTRUCTION);
 }
 
 // ============================================================ Session & workspace
@@ -275,12 +203,15 @@ export function parseArgs(args: string[]): CliOptions {
     } else if (arg === "--model" || arg === "--models" || arg === "--list-models") {
       const next = args[i + 1];
       if (arg === "--list-models" || !next || next.startsWith("-")) {
-        printAvailableModels(loadAllowedModels());
+        printModelPromptInstruction();
         process.exit(0);
       }
       options.model = args[++i];
     } else if (arg === "--level") {
-      options.level = args[++i];
+      const next = args[i + 1];
+      if (next && !next.startsWith("-")) {
+        options.level = args[++i];
+      }
     } else if (arg === "--session") {
       options.sessionId = args[++i];
     } else if (arg === "--request") {
@@ -310,8 +241,8 @@ Usage:
 
 Options:
   --mode <apply|explore|prompt> Workflow binding. Missing: prints the mode catalog.
-  --model [<name>]        Model to use (bare or <provider>/<model>). Without argument: list available models.
-  --level <level>         Level for the model (must exist in its allowed array; forwarded to pi's --thinking).
+  --model [<name>]        Model to pass through to pi. Without argument: prints instruction to ask the user.
+  --level <level>         Reasoning level to pass through to pi's --thinking flag.
   --session <id>          REQUIRED. Exact caller-owned Pi session id, passed through unchanged.
                           Fresh inquiry -> fresh unique id; follow-ups reuse it verbatim
                           (prompt may continue an apply/explore session). Syntax:
@@ -349,7 +280,7 @@ export async function main(): Promise<void> {
     process.exit(1);
   }
 
-if (!options.sessionId || !options.promptText) {
+  if (!options.sessionId || !options.promptText) {
     const message = `--mode ${mode} requires --session <id> and --prompt <text>.`;
     console.error(`[pi-runner] ${message}`);
     console.log(`[STATUS] FAILED: ${message}`);
@@ -357,17 +288,10 @@ if (!options.sessionId || !options.promptText) {
     process.exit(1);
   }
 
-const sessionCheck = validateSessionId(options.sessionId);
+  const sessionCheck = validateSessionId(options.sessionId);
   if (!sessionCheck.valid) {
     console.error(`[pi-runner] ${sessionCheck.error}`);
     console.log(`[STATUS] FAILED: ${sessionCheck.error}`);
-    process.exit(1);
-  }
-
-  const modelCheck = checkModelAndThinking(options.model, options.level);
-  if (!modelCheck.valid) {
-    console.error(`[pi-runner] ${modelCheck.error}`);
-    console.log(`[STATUS] FAILED: ${modelCheck.error}`);
     process.exit(1);
   }
 
@@ -387,13 +311,11 @@ const sessionCheck = validateSessionId(options.sessionId);
 
   const spawnArgs = ["-a", "--session-id", sessionId];
   if (options.model) {
-    const resolvedModel = modelCheck.canonicalModel ?? options.model;
-    spawnArgs.push("--model", resolvedModel);
-    console.log(`[pi-runner] Using model: ${resolvedModel}`);
+    spawnArgs.push("--model", options.model);
+    console.log(`[pi-runner] Using model: ${options.model}`);
   }
   if (options.level) {
-    // Single translation point: our `--level` aligns with models.json vocabulary;
-    // the pi CLI flag is `--thinking`.
+    // Single translation point: our `--level` maps to the pi CLI flag `--thinking`.
     spawnArgs.push("--thinking", options.level);
     console.log(`[pi-runner] Using level (pi --thinking): ${options.level}`);
   }

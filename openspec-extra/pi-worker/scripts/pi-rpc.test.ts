@@ -1,91 +1,60 @@
 import { describe, expect, it } from 'bun:test';
 import {
+  MODEL_PROMPT_INSTRUCTION,
   MODES,
   buildInitialPrompt,
-  checkModelAndThinking,
   formatPromptSettlement,
-  loadAllowedModels,
   loadModeDirectives,
   parseArgs,
-  printAvailableModels,
+  printModelPromptInstruction,
   validateSessionId,
 } from './pi-rpc.ts';
 
 // ============================================================ Shared core
-describe('registry: models.json (single source for both modes)', () => {
-  it('loads a non-empty registry with provider + levels per model', () => {
-    const models = loadAllowedModels();
-    const entries = Object.entries(models);
-    expect(entries.length).toBeGreaterThan(0);
-    for (const [, def] of entries) {
-      expect(typeof def.provider).toBe('string');
-      expect(Array.isArray(def.levels)).toBe(true);
-    }
-  });
-
-  it('prints the discovery map as minified JSON {model: levels}', () => {
-    const models = loadAllowedModels();
+describe('model instruction: bare --model asks user for model and reasoning level', () => {
+  it('prints a plain-text instruction to ask the user for model and reasoning level', () => {
     const out: string[] = [];
     const orig = console.log;
     console.log = (line?: unknown) => out.push(String(line));
     try {
-      printAvailableModels(models);
+      printModelPromptInstruction();
     } finally {
       console.log = orig;
     }
     expect(out).toHaveLength(1);
-    const flat = JSON.parse(out[0]);
-    const first = Object.keys(models)[0];
-    expect(flat[first]).toEqual(models[first].levels);
+    expect(out[0]).toBe(MODEL_PROMPT_INSTRUCTION);
+    expect(out[0]).toContain('Ask the user which model and reasoning level to use');
+  });
+
+  it('exits 0 and emits plain-text instruction when CLI is invoked with bare --model, --models, or --list-models', () => {
+    const scriptPath = new URL('./pi-rpc.ts', import.meta.url).pathname;
+    for (const flag of ['--model', '--models', '--list-models']) {
+      const proc = Bun.spawnSync(['bun', scriptPath, flag]);
+      expect(proc.exitCode).toBe(0);
+      expect(proc.stdout.toString().trim()).toBe(MODEL_PROMPT_INSTRUCTION);
+    }
   });
 });
 
-describe('shared core: model and level validation', () => {
-  it('accepts undefined model and level (pi defaults)', () => {
-    expect(checkModelAndThinking(undefined, undefined).valid).toBe(true);
+describe('shared core: pure pass-through model and level', () => {
+  it('accepts arbitrary bare or qualified model strings verbatim', () => {
+    for (const m of ['gpt-6-luna', 'commandcode/gpt-6-luna', 'custom-provider/any-model']) {
+      const opts = parseArgs(['--mode', 'apply', '--model', m, '--session', 'openspec-demo', '--prompt', 'demo']);
+      expect(opts.model).toBe(m);
+    }
   });
 
-  it('resolves a bare model to canonical <provider>/<model>', () => {
-    const models = loadAllowedModels();
-    const name = Object.keys(models)[0];
-    const check = checkModelAndThinking(name, undefined, models);
-    expect(check.valid).toBe(true);
-    expect(check.canonicalModel).toBe(`${models[name].provider}/${name}`);
+  it('accepts arbitrary level strings verbatim without catalog lookup', () => {
+    for (const lvl of ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'custom-level']) {
+      const opts = parseArgs(['--mode', 'explore', '--level', lvl, '--session', 'openspec-demo', '--prompt', 'demo']);
+      expect(opts.level).toBe(lvl);
+    }
   });
 
-  it('accepts a correctly qualified model as-is', () => {
-    const models = loadAllowedModels();
-    const name = Object.keys(models)[0];
-    const qualified = `${models[name].provider}/${name}`;
-    const check = checkModelAndThinking(qualified, undefined, models);
-    expect(check.valid).toBe(true);
-    expect(check.canonicalModel).toBe(qualified);
-  });
-
-  it('rejects unknown models', () => {
-    expect(checkModelAndThinking('not-a-real-model', undefined).valid).toBe(false);
-  });
-
-  it('rejects a qualified model with a mismatched provider', () => {
-    const models = loadAllowedModels();
-    const name = Object.keys(models)[0];
-    const check = checkModelAndThinking(`wrong-provider/${name}`, undefined, models);
-    expect(check.valid).toBe(false);
-  });
-
-  it('rejects an unsupported level for bare and qualified models', () => {
-    const models = loadAllowedModels();
-    const name = Object.keys(models)[0];
-    const levels = models[name].levels;
-    const bad = levels.includes('ultra-impossible') ? 'nope' : 'ultra-impossible';
-    expect(checkModelAndThinking(name, bad, models).valid).toBe(false);
-    expect(checkModelAndThinking(`${models[name].provider}/${name}`, bad, models).valid).toBe(false);
-  });
-
-  it('rejects --level without a model', () => {
-    const check = checkModelAndThinking(undefined, 'high');
-    expect(check.valid).toBe(false);
-    if (!check.valid) expect(check.error).toContain('--level cannot be specified without --model');
+  it('does not swallow the next flag when --level is given without a value', () => {
+    const opts = parseArgs(['--mode', 'explore', '--level', '--session', 'openspec-demo', '--prompt', 'demo']);
+    expect(opts.level).toBeUndefined();
+    expect(opts.sessionId).toBe('openspec-demo');
   });
 });
 
@@ -131,20 +100,16 @@ describe('shared core: CLI parsing', () => {
     }
   });
 
-it('records the retired --request flag instead of parsing it as a prompt', () => {
+  it('records the retired --request flag instead of parsing it as a prompt', () => {
     const opts = parseArgs(['--mode', 'explore', '--session', 'openspec-demo', '--request', 'r']);
     expect(opts.retiredRequest).toBe('r');
     expect(opts.promptText).toBeUndefined();
   });
 
-it('keeps the raw model; canonical form resolves in checkModelAndThinking', () => {
-    const models = loadAllowedModels();
-    const name = Object.keys(models)[0];
-    const opts = parseArgs(['--mode', 'explore', '--model', name, '--session', 'openspec-demo', '--prompt', 'r']);
-    expect(opts.model).toBe(name);
-    expect(checkModelAndThinking(opts.model, undefined).canonicalModel).toBe(
-      `${models[name].provider}/${name}`
-    );
+  it('keeps the raw model and level strings unchanged for pass-through', () => {
+    const opts = parseArgs(['--mode', 'explore', '--model', 'opencode-go/deepseek-v4.1-flash', '--level', 'high', '--session', 'openspec-demo', '--prompt', 'r']);
+    expect(opts.model).toBe('opencode-go/deepseek-v4.1-flash');
+    expect(opts.level).toBe('high');
   });
 
   it('parses --level, --timeout, --root and --verbose', () => {

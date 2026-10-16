@@ -18,8 +18,8 @@ metadata:
 # Pi Worker — headless `pi` delegation (apply | explore)
 
 One bridge, three modes. The host agent stays supervisor: it scopes the delegation, picks the
-mode, resolves model and level from the live registry, triages settlement, and verifies the
-outcome. The worker executes in an isolated session over JSON-RPC.
+mode, asks the user for the target model and reasoning level (unless already specified), triages
+settlement, and verifies the outcome. The worker executes in an isolated session over JSON-RPC.
 
 > **Path Resolution**: All `scripts/` and `references/` paths below are relative to this
 > skill's directory (e.g. `.agents/skills/pi-worker/`). Resolve them against the skill's
@@ -34,11 +34,9 @@ outcome. The worker executes in an isolated session over JSON-RPC.
 | Raw prompt: generic question, or follow-up to any existing session | `--mode prompt` | No directive: the `--prompt` text is sent unchanged |
 
 Read the chosen mode directive and follow its workflow steps (`prompt` mode has no external
-directive: for fresh `--mode prompt` turns, query `scripts/pi-rpc.ts --model` first and select
-a model and valid `--level` matching complexity — lightweight `*-flash*`/`*-free` with
-`minimal`/`low` for simple queries, standard/reasoning with `medium`/`high` for code analysis,
-or flagship `*-pro*`/`*-ultra*` with `high`/`xhigh`/`max` for deep architecture; for follow-ups
-to a paused `apply` or `explore` session, reuse `--session "<id>"` with `--mode prompt`).
+directive: for fresh `--mode prompt` turns, ask the user which `--model` and `--level` to use
+if they were not already specified in the request; for follow-ups to a paused `apply` or
+`explore` session, reuse `--session "<id>"` with `--mode prompt`).
 All modes drive the same
 runner, [scripts/pi-rpc.ts](scripts/pi-rpc.ts); protocol internals live in
 [references/rpc-protocol.md](references/rpc-protocol.md) (progressive disclosure: load it
@@ -55,10 +53,12 @@ bun run .agents/skills/pi-worker/scripts/pi-rpc.ts --mode prompt  --session "<id
 - `--mode <apply|explore|prompt>` — required for a turn. **Missing `--mode` prints the JSON mode
   catalog** `{"apply": "<directive>", "explore": "<directive>", "prompt": "<description>"}`;
   an invalid value errors listing valid modes.
-- `--model` / `--level` — query the live registry first (`scripts/pi-rpc.ts --model` emits
-  `{"<model>":["level",...]}`; single source of truth). Aliases `--models` and `--list-models`
-  behave identically. `--level` is validated against the
-  model's allowed array and forwarded to pi's `--thinking`.
+- `--model` / `--level` — ask the user which model and reasoning level to use before spawning a
+  fresh worker session (unless already specified by the user). Both flags are pure pass-through:
+  `--model <model>` is forwarded to `pi --model <model>` and `--level <level>` is forwarded to
+  `pi --thinking <level>`. Invoking `scripts/pi-rpc.ts --model` (or `--models` / `--list-models`)
+  without an argument prints a plain-text instruction on stdout reminding the caller to ask the
+  user for the model and reasoning level.
 - `--session <id>` — always required: the exact caller-owned Pi session id, passed through
   unchanged (the bridge derives nothing). Fresh inquiry → fresh unique id; follow-ups reuse
   it verbatim — including across modes (`prompt` continues an apply/explore session).
@@ -88,8 +88,8 @@ followed by a terminal
 - **Explore is strictly read-only**: neither worker nor supervisor writes in that mode; if the
   user asks to scaffold, switch to `--mode apply`'s directive context or direct them to
   `/openspec-propose` / direct apply.
-- **Do NOT select a model before assessing scope**, and never hardcode model names: always
-  query `--model` discovery first.
+- **Do NOT autonomously guess or hardcode `--model` or `--level`**: always ask the user which
+  model and reasoning level to use when starting a fresh session unless the user already specified them.
 - **Do NOT treat a worker claim or a `--mode prompt` turn's `COMPLETED` status as apply completion**:
   apply is verified against `openspec instructions apply --change "<name>" --json` (`remaining: 0`),
   including after every `--mode prompt` follow-up turn; explore ends with a report (or a blocking question).

@@ -18,7 +18,7 @@ metadata:
 
 # OpenSpec Pi Explore Workflow
 
-Delegate read-only OpenSpec exploration and architectural investigation for a user `<prompt>` to a headless `pi` worker engine communicating over JSON-RPC. The host agent acts as architectural supervisor: inspecting workspace context, evaluating inquiry complexity, querying the live model registry to select a valid worker configuration, autonomously triaging worker questions via same-session `--mode prompt` follow-ups, enforcing strict read-only guardrails, and presenting the worker's synthesized exploration report.
+Delegate read-only OpenSpec exploration and architectural investigation for a user `<prompt>` to a headless `pi` worker engine communicating over JSON-RPC. The host agent acts as architectural supervisor: inspecting workspace context, evaluating inquiry complexity, asking the user which model and reasoning level to use (unless already specified), autonomously triaging worker questions via same-session `--mode prompt` follow-ups, enforcing strict read-only guardrails, and presenting the worker's synthesized exploration report.
 
 > **Path Resolution**: All `scripts/` and `references/` paths below are relative to this skill's directory (e.g., `.agents/skills/pi-worker/`). Resolve them against the skill's base directory when invoking commands from the workspace root.
 
@@ -33,8 +33,7 @@ Delegate read-only OpenSpec exploration and architectural investigation for a us
 ## Gotchas & Anti-Examples (What NOT to do)
 
 - **Do NOT allow the worker or supervisor to write files** in this workflow. Neither project source files nor OpenSpec artifacts (`openspec/changes/`, `openspec/specs/`, `config.yaml`) may be created or modified. If the user asks to scaffold a change or implement code, direct them to `/openspec-propose` or `/pi-worker` (`--mode apply`).
-- **Do NOT select a model before assessing the request and OpenSpec context**. Always inspect `openspec list --json` and `openspec list --specs --json` in Step 1 before choosing `--model` and `--level`.
-- **Do NOT assume or memorize model names or thinking levels**. `references/models.json` is a dynamic registry; always run `--model` discovery in Step 2.1 and select strictly from its live output.
+- **Do NOT autonomously pick or hardcode `--model` or `--level`**. Always inspect `openspec list --json` and `openspec list --specs --json` in Step 1 first, then ask the user which model and reasoning level to use in Step 2 (unless the user already specified them in their request).
 - **Do NOT pipe raw `pi` stdout directly** into conversational logs. Always use `scripts/pi-rpc.ts` to filter high-frequency token deltas and emit only clean tool events and the settled exploration report.
 - **Do NOT use unescaped double quotes or backticks in `--prompt`**. Wrap `--prompt` payloads in single quotes (or escape `$` and `` ` ``) so bash does not evaluate code identifiers as subshells.
 - **Do NOT skip `--session "<id>"` or reuse one id across concurrent delegations**. The id is passed through unchanged (convention: `openspec-<slug>`, strictly lowercase `a-z` words separated by single hyphens — spell out any digits such as `openspec-oauth-two-a`); resuming a paused worker reuses the exact `--session "<id>"` with `--mode prompt --prompt '<answer>'`.
@@ -43,7 +42,7 @@ Delegate read-only OpenSpec exploration and architectural investigation for a us
 ## Workflow Checklist
 
 - [ ] **Step 1**: Inspect OpenSpec context (`openspec list --json`, `openspec list --specs --json`) and evaluate `<prompt>` complexity.
-- [ ] **Step 2**: Query live `--model` registry, snap `--level` to the chosen model's allowed array, and spawn `scripts/pi-rpc.ts` with a unique `--session`.
+- [ ] **Step 2**: Ask the user which `--model` and `--level` to use (if not already specified in their prompt) and spawn `scripts/pi-rpc.ts` with a unique `--session`.
 - [ ] **Step 3 & 4**: Triage settlement status (`COMPLETED`, `PAUSED_FOR_CLARIFICATION`, or `FAILED`), autonomously resolving worker questions via same-session `--mode prompt` follow-ups.
 - [ ] **Step 5**: Verify no files were mutated and present the worker's exploration report to the user.
 
@@ -63,41 +62,24 @@ Delegate read-only OpenSpec exploration and architectural investigation for a us
    - Named change: `openspec status --change "<name>" --json`
    - Named spec: `openspec show "<spec-id>" --type spec --json --no-scenarios`
 3. **Evaluate Inquiry Scope & Analytical Depth**:
-   Assess `<prompt>` alongside the Step 1.1–1.2 context across three routing dimensions:
+   Assess `<prompt>` alongside the Step 1.1–1.2 context across three dimensions so you can summarize the scope when asking the user for the worker configuration:
    - **Investigative Breadth**: Single file/function vs. localized module/spec vs. cross-cutting multi-module or system-wide architecture.
    - **Cognitive Depth**: Factual lookup/flow tracing vs. multi-option tradeoff comparison vs. deep root-cause diagnosis, concurrency, or protocol/parser design.
    - **Specification Coupling**: Greenfield brainstorming vs. reconciling multiple existing specs and in-flight changes.
 
-### Step 2: Live Registry Discovery & Worker Spawning
+### Step 2: User Model & Reasoning Level Selection & Worker Spawning
 
-1. **Query the Live Model Registry (Mandatory)**:
-   Inspect the currently registered models and their exact supported thinking levels (emits minified JSON `{"<model>":["level",...]}` from `references/models.json`):
-   ```bash
-   bun run .agents/skills/pi-worker/scripts/pi-rpc.ts --model
-   ```
-   Treat this command's output as the **Single Source of Truth** for both model availability and valid thinking levels.
+1. **Ask the User for `--model` and `--level` (Mandatory when not already specified)**:
+   - If the user already specified the target model and reasoning level in their request, use those values directly.
+   - Otherwise, ask the user which model (`--model`) and reasoning level (`--level`, e.g., `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`) they want the `pi` worker to use, sharing a brief summary of the inquiry scope from Step 1.
+   - *(Note: Invoking `bun run .agents/skills/pi-worker/scripts/pi-rpc.ts --model` with no argument prints a plain-text reminder instructing you to ask the user for the model and reasoning level.)*
 
-2. **Map Inquiry Complexity to Live Models**:
-   Classify the models returned in Step 2.1 by their capability profile (inferred from model family/tier naming such as `flash`/`lightning`/`free` vs. standard/reasoning vs. `pro`/`ultra` and their supported thinking ceiling) and match against the Step 1 inquiry assessment:
-
-   | Complexity Tier | Inquiry Signals (from Step 1) | Model Selection Heuristic (from Step 2.1 output) | Target Thinking Depth |
-   | :--- | :--- | :--- | :--- |
-   | **Tier 0: Pinpoint / Lookup** | Narrow question about 1 file, symbol, config, or existing spec requirement | Select a fast/lightweight model (`*-flash*`, `*-lightning*`, or `*-free`) | `minimal` or `low` |
-   | **Tier 1: Scoped Inquiry** | 1–2 modules; tracing an existing flow, clarifying a single capability, or summarizing a change | Select a fast general model (`*-flash*` or standard tier) | `low` or `medium` |
-   | **Tier 2: Tradeoff & Design Exploration** | 2–5 modules; comparing architectural options, mapping integration points, or diagnosing a complex bug | Select a strong code/reasoning model (capable `*-flash` with `high`/`max` ceiling, contributor, or `*-ultra*`) | `high` |
-   | **Tier 3: Deep Architectural / Cross-Cutting** | System-wide architecture, greenfield subsystem design, concurrency/state machines, or multi-spec reconciliation | Select a flagship model (`*-pro*`, `*-ultra*`, or a reasoning model supporting `xhigh`/`max`) | `high`, `xhigh`, or `max` |
-
-3. **Snap `--level` to the Model's Allowed Array**:
-   Verify that your target thinking level exists in the chosen model's array from Step 2.1 (`{"<selected-model>": [...]}`):
-   - **Exact Match**: If the target level is present in the model's array, use it directly.
-   - **Nearest Valid Level (Snapping)**: If a model omits an intermediate level (e.g., supporting `["low", "high", "max"]` without `"medium"`, or only supporting `["high"]`), snap to the nearest valid level in its array—rounding **up** for design/tradeoff analysis and **down** for simple lookups. Never pass a thinking level omitted from that model's Step 2.1 array.
-
-4. **Spawn Explore Runner**:
-   Compose a fresh unique session id per delegation (convention `openspec-<topic>-<suffix>`, strictly lowercase `a-z` words separated by single hyphens — spell out any digits so `validateSessionId` passes and concurrent delegations never collide) and execute the bridge runner with single quotes around `--prompt`:
+2. **Spawn Explore Runner**:
+   Compose a fresh unique session id per delegation (convention `openspec-<topic>-<suffix>`, strictly lowercase `a-z` words separated by single hyphens — spell out any digits so `validateSessionId` passes and concurrent delegations never collide) and execute the bridge runner with single quotes around `--prompt` and the user's chosen `--model` and `--level`:
    ```bash
    bun run .agents/skills/pi-worker/scripts/pi-rpc.ts --mode explore --session "<id>" --model "<model>" --level "<level>" --prompt '<prompt>'
    ```
-   - Validates `--model` and `--level` against `references/models.json` and spawns `pi -a --session-id "<id>" --mode rpc`
+   - Forwards `--model` and `--level` (`--thinking`) directly to `pi -a --session-id "<id>" --mode rpc`
    - Transmits `/skill:openspec-explore <prompt>` over stdin along with a strict read-only report mandate (forbidding file or OpenSpec artifact writes)
    - Filters raw token deltas, emitting clean tool progress logs (`⚙ [pi:tool] Invoking: ...`) and capturing the worker's final markdown report between `[EXPLORE_REPORT_START]` and `[EXPLORE_REPORT_END]` upon `agent_settled`
    - *Progressive Disclosure*: Do **not** load [references/rpc-protocol.md](references/rpc-protocol.md) during normal execution; read it **only** if you need to diagnose malformed JSON-RPC framing or runner stream errors.
@@ -132,10 +114,8 @@ The worker paused to ask a clarifying question, narrow an investigative branch, 
 
 Worker exited with an error, stalled in a tool loop, or timed out.
 
-1. Inspect stderr and diagnostic logs to classify the failure against the live registry from Step 2.1:
-   - **Reasoning / Investigation Stall**: Retry once by stepping up to the next valid thinking level in the current model's array (e.g., `medium` -> `high` -> `xhigh`/`max`) or switching to a higher-tier model from Step 2.1.
-   - **Provider Timeout / Rate Limit**: Retry once using an alternate model from Step 2.1 at an equivalent supported thinking level.
-2. If the escalated retry also returns `[STATUS] FAILED`, halt and report the diagnostic details to the user.
+1. Inspect stderr and diagnostic logs to determine the cause (e.g., invalid model/level, reasoning stall, provider timeout/rate limit, or fatal workspace error).
+2. Report the diagnostic details to the user and ask whether they want to retry with a different `--model` or `--level`. Do not autonomously switch models without user confirmation.
 
 ### Step 4: Resume Iteration Loop
 

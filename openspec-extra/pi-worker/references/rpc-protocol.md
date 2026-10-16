@@ -7,7 +7,7 @@ Shared framing, lifecycle events, and output contract for `scripts/pi-rpc.ts` ac
 - `-a` (`--approve`): Auto-approves workspace tool operations within project scope, preventing interactive TTY prompts. **(apply)**
 - `-a` (`--approve`): Auto-approves read-only tool operations within workspace scope, preventing interactive TTY prompts. **(explore)**
 - `--session-id "<id>"` **(all modes)**: Caller-owned session identity, passed through unchanged. Fresh delegations use a fresh unique id (convention: `openspec-<slug>`); follow-ups reuse it verbatim, including across modes. Syntax `^[a-z]+(?:-[a-z]+)*$`; invalid ids are rejected before launch.
-- `--model "<provider>/<model>"` and `--level "<level>"`: Canonical model and thinking depth validated against `references/models.json`.
+- `--model "<model>"` and `--level "<level>"`: User-selected model and thinking depth passed straight through to `pi --model` and `pi --thinking`.
 - `--mode rpc`: Activates bidirectional newline-delimited JSON-RPC streaming over standard I/O.
 
 - Uniqueness is the caller's job: reusing an id across concurrent delegations interleaves their sessions.
