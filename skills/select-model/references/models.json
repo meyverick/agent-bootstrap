@@ -1,21 +1,91 @@
 {
   "models": {
-    "deepseek-v4.1-flash": { "provider": "opencode-go", "levels": ["low", "high", "max"] },
-    "mimo-v2.6-flash": { "provider": "opencode-go", "levels": [ "off",  "minimal", "low", "medium", "high" ] },
-    "muse-spark-1.3-contributor": { "provider": "opencode-go", "levels": [ "minimal", "low", "medium", "high", "xhigh" ] },
-    "step-5-preview-free": { "provider": "opencode-go", "levels": [ "low", "medium", "high" ] },
-    "longcat-2.5-preview-free": { "provider": "opencode-go", "levels": [ "off",  "minimal", "low", "medium", "high" ] },
+    "deepseek-v4.1-flash": {
+      "provider": "opencode-go",
+      "description": "Fast code-focused model optimized for routine feature implementation, bug fixes, and unit test generation.",
+      "capabilities": ["coding", "bugfix", "standard-logic", "unit-tests"],
+      "levels": ["low", "high", "max"]
+    },
+    "mimo-v2.6-flash": {
+      "provider": "opencode-go",
+      "description": "Low-latency flash model designed for rapid iterations, localized edits, and daily engineering tasks.",
+      "capabilities": ["fast", "coding", "routine-tasks"],
+      "levels": ["off", "minimal", "low", "medium", "high"]
+    },
+    "muse-spark-1.3-contributor": {
+      "provider": "opencode-go",
+      "description": "High-reasoning code model for contributor workflows requiring deep structural understanding and code synthesis.",
+      "capabilities": ["deep-reasoning", "refactoring", "code-review"],
+      "levels": ["minimal", "low", "medium", "high", "xhigh"]
+    },
+    "step-5-preview-free": {
+      "provider": "opencode-go",
+      "description": "Free preview model balancing reasoning and speed for standard scripts and utilities.",
+      "capabilities": ["free", "scripting", "standard-logic"],
+      "levels": ["low", "medium", "high"]
+    },
+    "longcat-2.5-preview-free": {
+      "provider": "opencode-go",
+      "description": "Free preview model suited for processing extensive documentation and broad reference contexts.",
+      "capabilities": ["free", "docs", "context-heavy"],
+      "levels": ["off", "minimal", "low", "medium", "high"]
+    },
 
-    "poolside/laguna-s-2.1-free": { "provider": "commandcode", "levels": [ "off" ] },
-    "inclusionai/ling-3.0-flash-sante:free": { "provider": "commandcode", "levels": [ "off" ] },
-    "inclusionai/ling-3.1-flash:free": { "provider": "commandcode", "levels": [ "off", "low", "medium", "high" ] },
-    "stealth/glyph-cluster:free": { "provider": "commandcode", "levels": [ "off", "low", "medium", "high", "xhigh" ] },
-    "gpt-6-luna": { "provider": "commandcode", "levels": [ "off", "low", "medium", "high", "xhigh", "max" ] },
+    "poolside/laguna-s-2.1-free": {
+      "provider": "commandcode",
+      "description": "Zero-reasoning free tier model for simple typographical edits, comments, and lint formatting.",
+      "capabilities": ["free", "fast", "lint", "formatting", "typo"],
+      "levels": ["off"]
+    },
+    "inclusionai/ling-3.0-flash-sante:free": {
+      "provider": "commandcode",
+      "description": "Free lightweight flash model with immediate response for simple lookups and minor fixes.",
+      "capabilities": ["free", "fast", "lightweight", "simple-fixes"],
+      "levels": ["off"]
+    },
+    "inclusionai/ling-3.1-flash:free": {
+      "provider": "commandcode",
+      "description": "Free flash model with configurable thinking depth for general coding tasks and bug fixes.",
+      "capabilities": ["free", "coding", "bugfix", "general"],
+      "levels": ["off", "low", "medium", "high"]
+    },
+    "stealth/glyph-cluster:free": {
+      "provider": "commandcode",
+      "description": "Free high-compute cluster model supporting deep reasoning for complex logic and algorithmic challenges.",
+      "capabilities": ["free", "deep-reasoning", "algorithms", "complex-logic"],
+      "levels": ["off", "low", "medium", "high", "xhigh"]
+    },
+    "gpt-6-luna": {
+      "provider": "commandcode",
+      "description": "Premier frontier model with deep multi-step reasoning for system architecture, concurrency, state machines, and multi-file refactoring.",
+      "capabilities": ["architecture", "deep-reasoning", "concurrency", "refactoring", "multi-file"],
+      "levels": ["off", "low", "medium", "high", "xhigh", "max"]
+    },
 
-    "gemini-3.5-flash-lite": { "provider": "google", "levels": [ "minimal", "low", "medium", "high" ] },
-    "gemini-3.8-flash": { "provider": "google", "levels": [ "low", "medium", "high" ] },
-    "gemini-4-argon": { "provider": "google", "levels": [ "low", "medium", "high" ] },
+    "gemini-3.5-flash-lite": {
+      "provider": "google",
+      "description": "Ultra-fast, lightweight model ideal for single-line bug fixes, formatting, linting, and rapid documentation edits.",
+      "capabilities": ["fast", "lightweight", "docs", "lint", "formatting"],
+      "levels": ["minimal", "low", "medium", "high"]
+    },
+    "gemini-3.8-flash": {
+      "provider": "google",
+      "description": "High-speed multimodal flash model balancing intelligence and speed for full-stack feature development.",
+      "capabilities": ["fast", "full-stack", "coding", "feature-dev"],
+      "levels": ["low", "medium", "high"]
+    },
+    "gemini-4-argon": {
+      "provider": "google",
+      "description": "Premier advanced reasoning model engineered for large-scale code synthesis, formal invariants, and architectural planning.",
+      "capabilities": ["architecture", "deep-reasoning", "synthesis", "formal-invariants"],
+      "levels": ["low", "medium", "high"]
+    },
 
-    "mimo-v2.6-pro": { "provider": "xiaomi-token-plan-ams", "levels": [ "off",  "minimal", "low", "medium", "high" ] }
+    "mimo-v2.6-pro": {
+      "provider": "xiaomi-token-plan-ams",
+      "description": "High-tier professional model offering comprehensive reasoning across production system refactoring.",
+      "capabilities": ["deep-reasoning", "production-code", "refactoring"],
+      "levels": ["off", "minimal", "low", "medium", "high"]
+    }
   }
 }

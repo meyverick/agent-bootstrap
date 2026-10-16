@@ -175,7 +175,32 @@ function resolveModelForTier(
     }
   }
 
-  // Fallback if specific named models are not in catalog
+  // Capability-based match if explicit priority candidates are not present
+  if (tier === "heavy") {
+    for (const [key, m] of Object.entries(models)) {
+      if (m.capabilities?.includes("architecture") || m.capabilities?.includes("deep-reasoning")) {
+        return { model: key, provider: m.provider, defaultLevel: "high" };
+      }
+    }
+  } else if (tier === "light") {
+    for (const [key, m] of Object.entries(models)) {
+      if (
+        m.capabilities?.includes("lightweight") ||
+        m.capabilities?.includes("lint") ||
+        m.capabilities?.includes("typo")
+      ) {
+        return { model: key, provider: m.provider, defaultLevel: "minimal" };
+      }
+    }
+  } else {
+    for (const [key, m] of Object.entries(models)) {
+      if (m.capabilities?.includes("coding") || m.capabilities?.includes("feature-dev")) {
+        return { model: key, provider: m.provider, defaultLevel: "medium" };
+      }
+    }
+  }
+
+  // Fallback if specific named models or capabilities are not in catalog
   const allModelKeys = Object.keys(models);
   if (allModelKeys.length === 0) {
     throw new Error("Model catalog is empty; cannot select model.");

@@ -19,6 +19,8 @@ export const THINKING_LEVEL_ORDER: readonly ThinkingLevel[] = [
 
 export interface ModelCatalogEntry {
   provider: string;
+  description: string;
+  capabilities: string[];
   levels: ThinkingLevel[];
 }
 

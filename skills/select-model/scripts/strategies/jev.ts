@@ -58,7 +58,12 @@ export class JevStrategy implements SelectorStrategy {
 
     const modelCriteria: ChoiceCriteria = {};
     for (const [id, entry] of Object.entries(input.catalog.models)) {
-      modelCriteria[id] = `Provider: ${entry.provider}. Supported thinking levels: ${entry.levels.join(", ")}.`;
+      const desc = entry.description ? `${entry.description} ` : "";
+      const caps =
+        entry.capabilities && entry.capabilities.length > 0
+          ? `Capabilities: ${entry.capabilities.join(", ")}. `
+          : "";
+      modelCriteria[id] = `${desc}${caps}Provider: ${entry.provider}. Supported thinking levels: ${entry.levels.join(", ")}.`;
     }
 
     const levelCriteria: ChoiceCriteria = {};
