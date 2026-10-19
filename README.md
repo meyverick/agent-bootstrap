@@ -1,7 +1,7 @@
 # init-project
 
 Agentic boilerplate bootstrap — one curl, any project, any machine. Installs/updates
-the eight tool CLIs, writes committable project config (AGENTS.md directives, MCP
+the core tool CLIs, writes committable project config (AGENTS.md directives, MCP
 for pi + agy, skills), and runs the per-repo inits.
 
 ## Usage
@@ -35,21 +35,12 @@ Unknown flags are ignored — the script is also invoked by other tooling.
 ```
 agent-bootstrap/            <- this repo (submodule of the private orchestrator)
 ├── install.ts               <- THE bootstrap (self-contained: all payloads embedded)
-├── <app>/                   <- per-app reference installers + templates (e.g. benzi/install.ts)
-├── agents/                  <- base source (foundation, deployed by install.ts):
-│   ├── AGENTS.md            <- the universal rule book
-│   └── scripts/
-│       └── check-deps.ts    <- dev utility: dependency freshness report
-│                                (bun scripts/check-deps.ts [dir] [--json]) —
-│                                deployed to the consumer's ./scripts/ by the
-│                                foundation layer; never referenced by
-│                                AGENTS.md (developer tool, not an agent rule)
+├── project-template/        <- base source (foundation, deployed by install.ts)
 └── README.md
 ```
 
 Path convention: every path in the OpenSpec specs and docs is **relative to this
-repository root** (e.g. `./headroom/mcp.json` = `headroom/mcp.json`
-here).
+repository root**.
 
 ## What it does (in order)
 
@@ -59,22 +50,16 @@ here).
 | 1. Machine | **self-provisions prerequisites** (uv · Node 22 LTS · rustup · .NET SDK — user-scope, in-process PATH) then tool CLIs (npm/uv global packages) — **never** `~/` dotfile configs; LSP bins: **18/18 auto** (12 npm + 6 toolchain channels) | every run (update checks are read-only, offline-tolerant) |
 | 1c. Caveman runtime | `@caveman-ai/cli` via npm (install when absent, registry update check) then one non-interactive `caveman setup --install` per run, which verifies signatures + per-artifact checksums and syncs the tool's own binary directory (4 required + 2 optional binaries). User-scope, **no skills, no agent wiring, no `~/` pi writes** — the pi surface stays the workspace package. Runtime-install failure is a warning, never a failed run. Manual recovery: `npm i -g @caveman-ai/cli && caveman setup --install` | every run (installer short-circuits on a verified local install) |
 | 1b. openspec profile | `~/.config/openspec/config.json` — canonical 3 keys merged, everything else preserved, **zero secrets** | every run + converges |
-| 2. Project MCP + lens | `.pi/mcp.json` + `.agents/mcp_config.json` (10 servers, **env-ref credentials** where applicable — `benzi` carries none: auth lives in its own `~/.benzi/config.json`; `pi-lens` carries none: stdio transport) AND `.pi-lens.json` (report-only `format`/`autofix` off, `lsp.serverOverrides` rust+json, 3 custom `servers` buf/protols/tailwindcss) | first run + converges |
+| 2. Project MCP + lens | `.pi/mcp.json` + `.agents/mcp_config.json` (5 servers: `jev`, `context7`, `sem`, `codegraph`, `pi-lens`, **env-ref credentials** where applicable; `pi-lens` carries none: stdio transport) AND `.pi-lens.json` (report-only `format`/`autofix` off, `lsp.serverOverrides` rust+json, 3 custom `servers` buf/protols/tailwindcss) | first run + converges |
 | 2b. Project Pi packages | `.pi/settings.json` — `packages[]` from `pi-extensions/extensions.json`, merged **workspace-only** (template-wins for declared packages so version bumps propagate; foreign packages + sibling keys kept; `--prune` resets `packages` to ours. No `pi` spawn, never `~/.pi`) + hint: grant project trust on the first pi session to load them | every run + converges. The caveman extension's own runtime is provisioned by layer 1c — the package alone loads but stays in direct mode |
-| 3. Project rules | `AGENTS.md` — foundation base written directly (base = `agents/AGENTS.md`, created once then preserved; `--prune` reinstalls it byte-identical) | base on create / `--prune` |
+| 3. Project rules | `AGENTS.md` — foundation base written directly (base = `project-template/AGENTS.md`, created once then preserved; `--prune` reinstalls it byte-identical) | base on create / `--prune` |
 | 4. Project skills | `.agents/skills/` — deployed skills (ours: kit 6, openspec-extra 10, extra-skills 3; 101 files incl. 19 `.agent-bootstrap` ownership markers, no evals/transcripts). **Whole-tree convergence**: any drift (changed file, missing/extra file, missing marker) replaces the entire skill dir; a marker-bearing dir absent from the payload is deleted as stale; unmarked (foreign) dirs are never read or touched | every run + converges |
-| 5. Repo inits | `graft build`, `qmd init .` + **qmd collections seeded** (6 from `default-db.json` — wikis/llms/openspec/references/directives/skills, skip-by-name) + `qmd update`, `codegraph init` — marker-gated; **`openspec init --tools agents --force` — EVERY run (no marker, user's canonical command)** | gated ones only when `graft/` / `.qmd` / `.codegraph` is absent; openspec always; **re-run `qmd update` after skill-changing runs to refresh the skills collection** |
+| 5. Repo inits | `codegraph init` — marker-gated; **`openspec init --tools agents --force` — EVERY run (no marker, user's canonical command)** | gated ones only when `.codegraph` is absent; openspec always |
 
-Machine layer covers: `qmd` · `sem` · `graft` · `codegraph` · `openspec` (npm, per-app update
-semantics) · `headroom` · `benzi` (uv, PyPI compare + `uv tool upgrade`; the installer never
-spawns `benzi-mcp`/`benzi-login`/`benzi-headless`) · `jcodemunch` (uvx gate) · `context7` + `jev`
-(node/npx gates). Destructive/config-writing subcommands are structurally
-unreachable (spawn allowlists) — including openspec's interactive
-`update` upgrade offer, which is never spawned.
-
-`benzi` auth is a one-time **user** action: run `benzi-login` (interactive email
-code → `~/.benzi/config.json`, BYOK model keys) before MCP use. The installer
-never spawns it and never writes credentials into the project.
+Machine layer covers: `sem` · `codegraph` · `openspec` (npm, per-app update
+semantics) · `context7` + `jev` (node/npx gates). Destructive/config-writing
+subcommands are structurally unreachable (spawn allowlists) — including openspec's
+interactive `update` upgrade offer, which is never spawned.
 
 ## AGENTS.md ownership
 
@@ -114,7 +99,7 @@ set these in the environment that launches your agent host:
 
 No key is ever written into a project file — only `${VAR}` references. If a
 variable is unset at runtime, that server fails closed until you set it; the
-other six servers are unaffected.
+other three servers are unaffected.
 
 ## LSP: 17 language servers
 

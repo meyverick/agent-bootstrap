@@ -97,22 +97,13 @@ Estimate Tier 1 + Tier 2 token cost of proposed skill based on similar skills. W
 
 Before proposing, cluster gaps and gotchas across ALL reports in `openspec/reports/*` (excluding `archives/`).
 
-**Primary Clusterer (Hybrid Semantic via QMD):**
-Query the project-local index (never a global or shared index) scoped to `openspec` and `references` collections:
+**Clusterer (Keyword & Structured Grep):**
+Scan existing reports for recurring patterns:
 ```bash
-qmd query $'intent: cluster recurring knowledge gaps, skills gaps, and gotchas across reports\nlex: knowledge gaps skills gaps gotchas mental model shift\nvec: recurring difficulties, surprises, and lessons learned from past changes' --json -n 20 -c openspec -c references
-```
-Retrieve evidence for clustered items via `qmd multi-get "<docids>" --json`. Clusters MUST carry `qmd://` document IDs as evidence in the proposal. Semantic matching groups paraphrased descriptions of the same underlying obstacle even when distinct keywords were used.
-
-**Loud Fallback (Keyword Grep):**
-If the QMD daemon is unreachable or the index is unhealthy (`qmd status` fails):
-```bash
-# Loud fallback: note "qmd unavailable, grep fallback" in proposal
 for f in openspec/reports/*/report.md openspec/reports/*/assessment.md; do [ -f "$f" ] && echo "== $f ==" && grep -E "Knowledge gaps|Skills gaps|Concrete Gotcha|Before \(old|After \(new|Re-use Score|Time Cost" "$f" | head -n 20; done
 ```
-Note `qmd unavailable, grep fallback` explicitly in the proposal's Analysis section.
 
-Group recurring findings by topic/keyword and count occurrences. Prioritize a cluster that recurs in ≥2 reports over a singleton, even if the singleton's difficulty was higher. Record the cluster table (topic/keyword → count → representative gap → `qmd://` evidence) in the proposal's Analysis section; this drives `Deferred:` decisions in Phase 5.
+Group recurring findings by topic/keyword and count occurrences. Prioritize a cluster that recurs in ≥2 reports over a singleton, even if the singleton's difficulty was higher. Record the cluster table (topic/keyword → count → representative gap → source report file) in the proposal's Analysis section; this drives `Deferred:` decisions in Phase 5.
 
 **Dashboard generation (human curation view):** After clustering, write/overwrite `openspec/reports/dashboard.md` (never archived, never auto-loaded at agent startup):
 ```bash
